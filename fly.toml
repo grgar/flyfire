@@ -12,18 +12,19 @@ memory = "256mb"
 [[restart]]
 policy = "never"
 
+[deploy]
+release_command = "sh -c 'php artisan migrate --seed && php artisan cache:clear && php artisan view:clear && php artisan firefly-iii:upgrade-database && php artisan firefly-iii:laravel-passport-keys'"
+
 [http_service]
 internal_port = 8080
 force_https = true
 auto_stop_machines = "stop"
-auto_start_machines = true
-min_machines_running = 0
 [http_service.concurrency]
 type = "requests"
 soft_limit = 10000
 
 [env]
-APP_ENV = "production"
+APP_ENV = "local"
 APP_DEBUG = "true"
 DEFAULT_LANGUAGE = "en_GB"
 DEFAULT_LOCALE = "equal"
