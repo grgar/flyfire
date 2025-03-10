@@ -2,7 +2,15 @@ app = "firefly"
 primary_region = "lhr"
 
 [build]
-image = "fireflyiii/core:latest"
+# image = "fireflyiii/core:version-6.1.25"
+dockerfile = "Dockerfile"
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "256mb"
+
+[[restart]]
+policy = "never"
 
 [http_service]
 internal_port = 8080
