@@ -22,6 +22,12 @@ auto_stop_machines = "stop"
 [http_service.concurrency]
 type = "requests"
 soft_limit = 10000
+[[http_service.checks]]
+grace_period = "10s"
+interval = "30s"
+timeout = "5s"
+path = "/health"
+headers = { "X-Forwarded-Proto" = "HTTPS" }
 
 [env]
 APP_ENV = "local"
