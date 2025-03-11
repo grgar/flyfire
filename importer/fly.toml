@@ -1,0 +1,53 @@
+app = "firefly"
+primary_region = "lhr"
+
+[build]
+dockerfile = "Dockerfile"
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "256mb"
+
+[[restart]]
+policy = "never"
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = "stop"
+[http_service.concurrency]
+type = "requests"
+soft_limit = 10000
+[[http_service.checks]]
+grace_period = "10s"
+interval = "30s"
+timeout = "5s"
+path = "/health"
+headers = { "X-Forwarded-Proto" = "HTTPS" }
+
+[[statics]]
+guest_path = "/var/www/html/public/css"
+url_prefix = "/css"
+[[statics]]
+guest_path = "/var/www/html/public/js"
+url_prefix = "/js"
+[[statics]]
+guest_path = "/var/www/html/public/build"
+url_prefix = "/build"
+[[statics]]
+guest_path = "/var/www/html/public/fa"
+url_prefix = "/fa"
+
+[env]
+APP_ENV = "local"
+APP_DEBUG = "true"
+DEFAULT_LANGUAGE = "en_GB"
+DEFAULT_LOCALE = "equal"
+TZ = "Europe/London"
+LOG_CHANNEL = "stack"
+APP_LOG_LEVEL = "notice"
+AUDIT_LOG_LEVEL = "emergency"
+APP_NAME = "DataImporter"
+BROADCAST_DRIVER = "log"
+CACHE_PREFIX = "firefly"
+TRUSTED_PROXIES = "**"
