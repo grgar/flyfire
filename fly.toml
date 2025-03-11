@@ -29,6 +29,19 @@ timeout = "5s"
 path = "/health"
 headers = { "X-Forwarded-Proto" = "HTTPS" }
 
+[[statics]]
+guest_path = "/var/www/html/public/v1"
+url_prefix = "/v1"
+[[statics]]
+guest_path = "/var/www/html/public/v2"
+url_prefix = "/v2"
+[[statics]]
+guest_path = "/var/www/html/public/build"
+url_prefix = "/build"
+[[statics]]
+guest_path = "/var/www/html/public/images"
+url_prefix = "/images"
+
 [env]
 APP_ENV = "local"
 APP_DEBUG = "true"
