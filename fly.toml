@@ -7,10 +7,18 @@ dockerfile = "Dockerfile"
 
 [[vm]]
 size = "shared-cpu-1x"
-memory = "256mb"
+memory = "256MB"
 
 [[restart]]
 policy = "never"
+
+[mounts]
+source = "firefly_storage"
+destination = "/"
+initial_size = "1GB"
+auto_extend_size_threshold = 90
+auto_extend_size_increment = "1GB"
+auto_extend_size_limit = "5GB"
 
 [deploy]
 release_command = "sh -c 'php artisan migrate --seed && php artisan cache:clear && php artisan view:clear && php artisan firefly-iii:upgrade-database && php artisan firefly-iii:laravel-passport-keys'"

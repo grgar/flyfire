@@ -31,7 +31,6 @@ RUN mkdir -p \
 	storage/framework/views/v2 \
 	storage/logs \
 	storage/upload
-# TODO: persist uploads
 ARG FIREFLY_VERSION=6.2.9
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/v${FIREFLY_VERSION}/FireflyIII-v${FIREFLY_VERSION}.tar.gz | tar xzf -
 RUN composer dump-autoload -o
