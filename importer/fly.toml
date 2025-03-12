@@ -14,7 +14,7 @@ policy = "never"
 [http_service]
 internal_port = 8080
 force_https = true
-auto_stop_machines = "stop"
+auto_stop_machines = "suspend"
 [http_service.concurrency]
 type = "requests"
 soft_limit = 10000
