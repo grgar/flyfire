@@ -7,7 +7,7 @@ dockerfile = "Dockerfile"
 
 [[vm]]
 size = "shared-cpu-1x"
-memory = "256MB"
+memory = "512MB"
 
 [[restart]]
 policy = "never"
