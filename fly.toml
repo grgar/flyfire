@@ -21,7 +21,7 @@ auto_extend_size_increment = "1GB"
 auto_extend_size_limit = "5GB"
 
 [deploy]
-release_command = "sh -c 'php artisan migrate --seed && php artisan cache:clear && php artisan view:clear && php artisan firefly-iii:upgrade-database && php artisan firefly-iii:laravel-passport-keys'"
+release_command = "sh -c 'mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload} && chown -R www-data storage && php artisan migrate --seed && php artisan cache:clear && php artisan view:clear && php artisan firefly-iii:upgrade-database && php artisan firefly-iii:laravel-passport-keys && chown -R www-data storage'"
 
 [http_service]
 internal_port = 8080
