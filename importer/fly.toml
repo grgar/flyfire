@@ -1,4 +1,4 @@
-app = "firefly"
+app = "whi"
 primary_region = "lhr"
 
 [build]
@@ -12,7 +12,7 @@ memory = "256MB"
 policy = "never"
 
 [mounts]
-source = "firefly_storage"
+source = "whi_storage"
 destination = "/var/www/html/storage"
 initial_size = "1GB"
 auto_extend_size_threshold = 90
