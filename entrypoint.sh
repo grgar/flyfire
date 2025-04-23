@@ -1,5 +1,12 @@
 #!/bin/bash
 
+if [ "$(cat storage/ref)" == "$FLY_IMAGE_REF" ]; then
+	echo "skipping bootstrap"
+	exec /entrypoint
+	exit 0
+fi
+echo "$FLY_IMAGE_REF" >storage/ref
+
 composer dump-autoload --optimize
 php artisan package:discover
 mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
