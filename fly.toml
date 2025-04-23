@@ -18,9 +18,6 @@ policy = "never"
 source = "whe_storage"
 destination = "/var/www/html/storage"
 initial_size = "1GB"
-auto_extend_size_threshold = 90
-auto_extend_size_increment = "1GB"
-auto_extend_size_limit = "5GB"
 
 [http_service]
 internal_port = 8080
@@ -30,8 +27,8 @@ auto_stop_machines = "suspend"
 type = "requests"
 soft_limit = 10000
 [[http_service.checks]]
-grace_period = "2s"
-interval = "10s"
+grace_period = "5s"
+interval = "5s"
 timeout = "5s"
 path = "/health"
 headers = { "X-Forwarded-Proto" = "HTTPS" }
