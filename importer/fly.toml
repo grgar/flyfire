@@ -53,6 +53,8 @@ TRUSTED_PROXIES = "**"
 IMPORT_DIR_ALLOWLIST = "/var/www/html/import"
 CAN_POST_AUTOIMPORT = "true"
 CAN_POST_FILES = "true"
+APP_DEBUG = "true"
+LOG_LEVEL = "debug"
 
 [[files]]
 guest_path = "/var/www/html/import/1.json"
