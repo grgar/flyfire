@@ -5,6 +5,7 @@ on:
       - main
     paths:
       - importer/**
+      - "!**/*.md"
 jobs:
   deploy:
     name: Deploy
