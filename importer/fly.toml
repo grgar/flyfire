@@ -50,3 +50,19 @@ LOG_CHANNEL = "stack"
 APP_NAME = "DataImporter"
 BROADCAST_DRIVER = "log"
 TRUSTED_PROXIES = "**"
+IMPORT_DIR_ALLOWLIST = "/var/www/html/import"
+CAN_POST_AUTOIMPORT = "true"
+CAN_POST_FILES = "true"
+
+[[files]]
+guest_path = "/var/www/html/import/1.json"
+secret_name = "CFG_1"
+[[files]]
+guest_path = "/var/www/html/import/2.json"
+secret_name = "CFG_2"
+[[files]]
+guest_path = "/var/www/html/import/3.json"
+secret_name = "CFG_3"
+[[files]]
+guest_path = "/var/www/html/import/4.json"
+secret_name = "CFG_4"
