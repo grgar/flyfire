@@ -11,6 +11,9 @@ memory = "256MB"
 [[restart]]
 policy = "never"
 
+[deploy]
+strategy = "immediate"
+
 [mounts]
 source = "whi_storage"
 destination = "/var/www/html/storage"
