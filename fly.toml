@@ -29,7 +29,7 @@ soft_limit = 10000
 [[http_service.checks]]
 grace_period = "5s"
 interval = "5s"
-timeout = "10s"
+timeout = "5s"
 path = "/health"
 headers = { "X-Forwarded-Proto" = "HTTPS" }
 
