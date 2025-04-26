@@ -27,9 +27,9 @@ auto_stop_machines = "suspend"
 type = "requests"
 soft_limit = 10000
 [[http_service.checks]]
-grace_period = "5s"
-interval = "5s"
-timeout = "5s"
+grace_period = "2s"
+interval = "2s"
+timeout = "2s"
 path = "/health"
 headers = { "X-Forwarded-Proto" = "HTTPS" }
 
