@@ -2,6 +2,7 @@
 
 ARG PHP_VERSION=8.4
 FROM fideloper/fly-laravel:${PHP_VERSION}
+ARG PHP_VERSION
 LABEL fly_launch_runtime="laravel"
 
 # from https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
@@ -14,6 +15,7 @@ RUN apt-get update && \
 	apt-get install -y language-pack-${LANG}-base && \
 	apt-get clean && \
 	rm -rf /var/lib/apt/lists/*
+COPY php/opcache.ini /etc/php/${PHP_VERSION}/mods-available/opcache.ini
 
 RUN chown -R www-data .
 USER www-data
