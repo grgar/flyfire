@@ -3,9 +3,10 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - importer/**
-      - "**/*.md"
+    paths:
+      - Dockerfile
+      - entrypoint.sh
+      - fly.toml
 jobs:
   deploy:
     name: Deploy

@@ -4,8 +4,8 @@ on:
     branches:
       - main
     paths:
-      - importer/**
-      - "!**/*.md"
+      - importer/Dockerfile
+      - importer/fly.toml
 jobs:
   deploy:
     name: Deploy
