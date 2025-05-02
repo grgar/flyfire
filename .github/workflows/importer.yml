@@ -6,6 +6,7 @@ on:
     paths:
       - importer/Dockerfile
       - importer/fly.toml
+      - importer/patches/*.patch
 jobs:
   deploy:
     name: Deploy
