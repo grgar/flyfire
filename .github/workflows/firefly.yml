@@ -7,6 +7,7 @@ on:
       - Dockerfile
       - entrypoint.sh
       - fly.toml
+      - patches/*.patch
 jobs:
   deploy:
     name: Deploy

@@ -25,6 +25,8 @@ USER www-data
 RUN mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
 ARG FIREFLY_VERSION=6.2.12
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/v${FIREFLY_VERSION}/FireflyIII-v${FIREFLY_VERSION}.tar.gz | tar xzf -
+COPY patches flyfire-patches
+RUN git apply flyfire-patches/*.patch
 RUN composer dump-autoload -o
 USER root
 

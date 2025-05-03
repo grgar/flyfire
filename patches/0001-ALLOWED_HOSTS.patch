@@ -1,0 +1,60 @@
+From 028edca05fb2ee0149ab81d1633e587b535d3a87 Mon Sep 17 00:00:00 2001
+From: George Garside <apps@georgegarside.com>
+Date: Sat, 3 May 2025 23:18:04 +0100
+Subject: [PATCH] ALLOWED_HOSTS
+
+---
+ app/Http/Kernel.php                  |  2 ++
+ app/Http/Middleware/AllowedHosts.php | 20 ++++++++++++++++++++
+ 2 files changed, 22 insertions(+)
+ create mode 100644 app/Http/Middleware/AllowedHosts.php
+
+diff --git a/app/Http/Kernel.php b/app/Http/Kernel.php
+index 139547582c..3a2012c229 100644
+--- a/app/Http/Kernel.php
++++ b/app/Http/Kernel.php
+@@ -24,6 +24,7 @@
+ namespace FireflyIII\Http;
+ 
+ use FireflyIII\Http\Middleware\AcceptHeaders;
++use FireflyIII\Http\Middleware\AllowedHosts;
+ use FireflyIII\Http\Middleware\Authenticate;
+ use FireflyIII\Http\Middleware\Binder;
+ use FireflyIII\Http\Middleware\EncryptCookies;
+@@ -59,6 +60,7 @@ class Kernel extends HttpKernel
+ {
+     protected $middleware
+         = [
++            AllowedHosts::class,
+             SecureHeaders::class,
+             CheckForMaintenanceMode::class,
+             ValidatePostSize::class,
+diff --git a/app/Http/Middleware/AllowedHosts.php b/app/Http/Middleware/AllowedHosts.php
+new file mode 100644
+index 0000000000..27685d4d9a
+--- /dev/null
++++ b/app/Http/Middleware/AllowedHosts.php
+@@ -0,0 +1,20 @@
++<?php
++
++namespace FireflyIII\Http\Middleware;
++
++use Closure;
++use Illuminate\Http\Request;
++
++class AllowedHosts {
++    public function handle(Request $request, Closure $next) {
++        $allowedHosts = explode(',', env('ALLOWED_HOSTS', ''));
++        if (empty($allowedHosts)) {
++            return $next($request);
++        }
++        if (!in_array($request->header('Host'), $allowedHosts)) {
++            app('log')->warning('Host not in ALLOWED_HOSTS: ' . $request->header('Host'));
++            abort(403);
++        }
++        return $next($request);
++    }
++}
+-- 
+2.48.1
+
