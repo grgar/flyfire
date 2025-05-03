@@ -20,10 +20,8 @@ USER www-data
 
 # install data importer
 RUN mkdir -p storage
-ARG FIREFLY_DATA_IMPORTER_VERSION=1.6.2
-RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/v${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-v${FIREFLY_DATA_IMPORTER_VERSION}.tar.gz | tar xzf -
-COPY patches patches
-RUN git apply patches/*.patch
+# ARG FIREFLY_DATA_IMPORTER_VERSION=1.6.2
+RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/develop-20250503/DataImporter-develop.tar.gz | tar xzf -
 RUN composer dump-autoload -o
 
 USER root
