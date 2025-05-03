@@ -36,6 +36,7 @@ Flyfire configures the following on top of a default setup:
 4. `fly deploy --ha=false`
 5. `cp .env{.example,}` and edit `.env`
 6. `fly secrets import <.env`
+7. `cd importer` and perform steps 3–6 again
 
 This repository contains GitHub Actions that deploy updates pushed to main, once your initial deployment is complete. For these actions to work, flyctl needs authenticating in GitHub: run `fly tokens create deploy` locally and set `FLY_API_TOKEN` to this value in the repository settings.
 
@@ -48,3 +49,20 @@ To ensure Firefly autostarts from the Data Importer requests, use a .flycast add
    -FIREFLY_III_URL=http://your-app-name.internal
    +FIREFLY_III_URL=http://your-app-name.flycast
    ```
+
+Once you are familiar with Firefly, you'll probably want automation of imports. Flyfire supports this with [importer/import](importer/import) to store configuration files. To avoid committing them to the public repository, you can define them as secrets:
+
+1. Copy or symlink files into directory named *n*.json.
+2. Set as secrets
+
+    ```sh
+    find importer/import -name "*.json" -exec sh -c 'echo CFG_$(basename {} | cut -d. -f1)=$(base64 -i {})' \; | xargs fly secrets set -c importer/fly.toml
+    ```
+
+3. Update [importer/fly.toml](importer/fly.toml) with sufficient `[[files]]` entries.
+
+    ```toml
+    [[files]]
+    guest_path = "/import/n.json"
+    secret_name = "CFG_n"
+    ```
