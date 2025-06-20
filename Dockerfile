@@ -23,8 +23,8 @@ RUN echo "opcache.jit=on" >> /etc/php/${PHP_VERSION}/mods-available/opcache.ini 
 	chown -R www-data .
 USER www-data
 RUN mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
-# ARG FIREFLY_VERSION=6.2.16
-RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/develop-20250608/FireflyIII-develop.tar.gz | tar xzf -
+ARG FIREFLY_VERSION=6.2.17
+RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/v${FIREFLY_VERSION}/FireflyIII-v${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches flyfire-patches
 RUN git apply flyfire-patches/*.patch
 RUN composer dump-autoload -o
