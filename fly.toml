@@ -1,7 +1,7 @@
 app = "whe"
 primary_region = "lhr"
 
-swap_size_mb = 128
+swap_size_mb = 256
 
 [build]
 # image = "fireflyiii/core:version-6.1.25"
