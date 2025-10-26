@@ -22,6 +22,7 @@ Fly.io is my preferred method for deploying Firefly as
 
 Flyfire configures the following on top of a default setup:
 
+- ⚙️ merges Firefly-iii and Data Importer into a single image, differentiated by Host header
 - ⚙️ SQLite database in persistent storage volume
 - ⚙️ php `opcache.jit` and️ nginx `fastcgi_buffering off;` for performance
 - ⚙️ the Data Importer alongside Firefly, preconfigured with knowledge of where Firefly and how to internally communicate with it, but using OAuth for authorisation
@@ -36,7 +37,6 @@ Flyfire configures the following on top of a default setup:
 4. `fly deploy --ha=false`
 5. `cp .env{.example,}` and edit `.env`
 6. `fly secrets import <.env`
-7. `cd importer` and perform steps 3–6 again
 
 This repository contains GitHub Actions that deploy updates pushed to main, once your initial deployment is complete. For these actions to work, flyctl needs authenticating in GitHub: run `fly tokens create deploy` locally and set `FLY_API_TOKEN` to this value in the repository settings.
 
