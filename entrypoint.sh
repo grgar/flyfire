@@ -34,12 +34,12 @@ echo "$FLY_IMAGE_REF" >storage/ref
 
 mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
 chown -R www-data storage
+# based on https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
+rm -rf storage/{,importer/}{logs/*.log,framework/cache}
 php artisan migrate --seed
-php artisan cache:clear
-php artisan view:clear
 php artisan firefly-iii:upgrade-database
 php artisan firefly-iii:laravel-passport-keys
-php artisan view:cache
+php artisan optimize
 chown -R www-data storage ../importer/storage
 
 exec /entrypoint
