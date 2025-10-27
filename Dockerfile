@@ -26,13 +26,12 @@ RUN mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache
 ARG FIREFLY_VERSION=6.4.2
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/v${FIREFLY_VERSION}/FireflyIII-v${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches flyfire-patches
-RUN git apply flyfire-patches/*.patch
-RUN composer dump-autoload --optimize
+RUN git apply flyfire-patches/*.patch && composer dump-autoload --optimize
 
 ARG FIREFLY_DATA_IMPORTER_VERSION=1.8.2
 WORKDIR /var/www/importer
 RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/v${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-v${FIREFLY_DATA_IMPORTER_VERSION}.tar.gz | tar xzf -
-RUN composer dump-autoload --optimize
+RUN mv storage ../html/storage/importer && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
 
 USER root
 RUN chown -R www-data .
