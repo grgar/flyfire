@@ -16,7 +16,22 @@ RUN apt-get update && \
 	apt-get clean && \
 	rm -rf /var/lib/apt/lists/*
 # https://github.com/orgs/firefly-iii/discussions/5051
-RUN echo "opcache.jit=on" >> /etc/php/${PHP_VERSION}/mods-available/opcache.ini && \
+RUN printf "\
+	opcache.jit=on\n\
+	opcache.enable=1\n\
+	opcache.enable_cli=1\n\
+	opcache.memory_consumption=256\n\
+	opcache.interned_strings_buffer=16\n\
+	opcache.max_accelerated_files=10000\n\
+	opcache.revalidate_freq=2\n\
+	opcache.validate_timestamps=0\n\
+	opcache.save_comments=1\n" >> /etc/php/${PHP_VERSION}/mods-available/opcache.ini && \
+	printf "\
+	realpath_cache_size=4M\n\
+	realpath_cache_ttl=600\n\
+	memory_limit=200M\n\
+	max_execution_time=60\n" >> /etc/php/${PHP_VERSION}/fpm/php.ini && \
+	cp /etc/php/${PHP_VERSION}/fpm/php.ini /etc/php/${PHP_VERSION}/cli/php.ini && \
 	sed -i "s/fastcgi_buffers.*/fastcgi_buffering off;/" /etc/nginx/sites-enabled/default && \
 	sed -i "/fastcgi_buffer_size/d" /etc/nginx/sites-enabled/default && \
 	sed -i "s|^command=.*|command=/bin/sh -c 'while [ ! -S /var/run/php/php-fpm.sock ]; do sleep 0.1; done; exec /usr/local/bin/start-nginx'|" /etc/supervisor/conf.d/nginx.conf && \
@@ -31,7 +46,7 @@ RUN git apply flyfire-patches/*.patch && composer dump-autoload --optimize
 ARG FIREFLY_DATA_IMPORTER_VERSION=1.8.2
 WORKDIR /var/www/importer
 RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/v${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-v${FIREFLY_DATA_IMPORTER_VERSION}.tar.gz | tar xzf -
-RUN mv storage ../html/storage/importer && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
+RUN rm -rf storage && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
 
 USER root
 RUN chown -R www-data .
