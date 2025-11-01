@@ -38,14 +38,14 @@ RUN printf "\
 	chown -R www-data .
 USER www-data
 RUN mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
-ARG FIREFLY_VERSION=6.4.2
-RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/v${FIREFLY_VERSION}/FireflyIII-v${FIREFLY_VERSION}.tar.gz | tar xzf -
+ARG FIREFLY_VERSION=6.4.3
+RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches flyfire-patches
 RUN git apply flyfire-patches/*.patch && composer dump-autoload --optimize
 
-ARG FIREFLY_DATA_IMPORTER_VERSION=1.8.2
+ARG FIREFLY_DATA_IMPORTER_VERSION=develop-20251028
 WORKDIR /var/www/importer
-RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/v${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-v${FIREFLY_DATA_IMPORTER_VERSION}.tar.gz | tar xzf -
+RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-${FIREFLY_DATA_IMPORTER_VERSION%%-*}.tar.gz | tar xzf -
 RUN rm -rf storage && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
 
 USER root
