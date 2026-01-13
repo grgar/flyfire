@@ -39,3 +39,10 @@ Flyfire configures the following on top of a default setup:
 6. `fly secrets import <.env`
 
 This repository contains GitHub Actions that deploy updates pushed to main, once your initial deployment is complete. For these actions to work, flyctl needs authenticating in GitHub: run `fly tokens create deploy` locally and set `FLY_API_TOKEN` to this value in the repository settings.
+
+**To run locally** for development/testing, on macOS with apple/container,
+
+```sh
+container build -t flyfire:latest .
+container run --rm -p 8080:8080 --name firefly --env-file .env -d -a amd64 -v storage:/var/www/html/storage flyfire:latest
+```
