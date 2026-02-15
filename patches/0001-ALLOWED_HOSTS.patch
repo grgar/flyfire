@@ -1,6 +1,6 @@
-From 028edca05fb2ee0149ab81d1633e587b535d3a87 Mon Sep 17 00:00:00 2001
+From a92f01d8127de517056146ce388f19a2d007f8af Mon Sep 17 00:00:00 2001
 From: George Garside <apps@georgegarside.com>
-Date: Sat, 3 May 2025 23:18:04 +0100
+Date: Sun, 15 Feb 2026 15:36:58 +0000
 Subject: [PATCH] ALLOWED_HOSTS
 
 ---
@@ -10,25 +10,25 @@ Subject: [PATCH] ALLOWED_HOSTS
  create mode 100644 app/Http/Middleware/AllowedHosts.php
 
 diff --git a/app/Http/Kernel.php b/app/Http/Kernel.php
-index 139547582c..3a2012c229 100644
+index 3b002cf5a2..c00f769fb8 100644
 --- a/app/Http/Kernel.php
 +++ b/app/Http/Kernel.php
-@@ -24,6 +24,7 @@
+@@ -23,6 +23,7 @@
+
  namespace FireflyIII\Http;
- 
- use FireflyIII\Http\Middleware\AcceptHeaders;
+
 +use FireflyIII\Http\Middleware\AllowedHosts;
  use FireflyIII\Http\Middleware\Authenticate;
  use FireflyIII\Http\Middleware\Binder;
- use FireflyIII\Http\Middleware\EncryptCookies;
-@@ -59,6 +60,7 @@ class Kernel extends HttpKernel
+ use FireflyIII\Http\Middleware\InstallationId;
+@@ -45,6 +46,7 @@
+ class Kernel extends HttpKernel
  {
-     protected $middleware
-         = [
-+            AllowedHosts::class,
-             SecureHeaders::class,
-             CheckForMaintenanceMode::class,
-             ValidatePostSize::class,
+     protected $middleware         = [
++        AllowedHosts::class,
+         // SecureHeaders::class,
+         CheckForMaintenanceMode::class,
+         ValidatePostSize::class,
 diff --git a/app/Http/Middleware/AllowedHosts.php b/app/Http/Middleware/AllowedHosts.php
 new file mode 100644
 index 0000000000..27685d4d9a
@@ -55,6 +55,5 @@ index 0000000000..27685d4d9a
 +        return $next($request);
 +    }
 +}
--- 
-2.48.1
-
+--
+2.52.0
