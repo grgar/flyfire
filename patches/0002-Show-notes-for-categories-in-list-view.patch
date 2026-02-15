@@ -1,6 +1,6 @@
-From 28afd39870951baa9378861ad00f07be569813a1 Mon Sep 17 00:00:00 2001
+From d1239310b977c7f982d7de8bad288f08a74ea0a3 Mon Sep 17 00:00:00 2001
 From: George Garside <apps@georgegarside.com>
-Date: Sat, 22 Nov 2025 17:48:22 +0000
+Date: Sun, 15 Feb 2026 15:43:43 +0000
 Subject: [PATCH 2/2] Show notes for categories in list view
 
 ---
@@ -9,18 +9,18 @@ Subject: [PATCH 2/2] Show notes for categories in list view
  2 files changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/app/Repositories/Category/CategoryRepository.php b/app/Repositories/Category/CategoryRepository.php
-index 360e2a5409..7c9b5e1f5e 100644
+index 373bc13db8..d19601a78d 100644
 --- a/app/Repositories/Category/CategoryRepository.php
 +++ b/app/Repositories/Category/CategoryRepository.php
-@@ -100,7 +100,7 @@ public function destroyAll(): void
-      */
-     public function getCategories(): Collection
+@@ -198,7 +198,7 @@ public function getCategories(): Collection
      {
--        return $this->user->categories()->with(['attachments'])->orderBy('name', 'ASC')->get();
-+        return $this->user->categories()->with(['attachments', 'notes'])->orderBy('name', 'ASC')->get();
-     }
-
-     /**
+         return $this->user
+             ->categories()
+-            ->with(['attachments'])
++            ->with(['attachments', 'notes'])
+             ->orderBy('name', 'ASC')
+             ->get()
+         ;
 diff --git a/resources/views/list/categories.twig b/resources/views/list/categories.twig
 index 81686e662d..9a8908782b 100644
 --- a/resources/views/list/categories.twig
