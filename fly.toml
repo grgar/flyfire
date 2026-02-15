@@ -32,7 +32,7 @@ soft_limit = 10000
 grace_period = "2s"
 interval = "2s"
 timeout = "2s"
-path = "/health"
+path = "/up"
 headers = { "X-Forwarded-Proto" = "HTTPS" }
 
 [[statics]]
