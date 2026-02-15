@@ -1,34 +1,14 @@
-From a92f01d8127de517056146ce388f19a2d007f8af Mon Sep 17 00:00:00 2001
+From 912e44c0216cc385e074dcb548eb62907679ccc7 Mon Sep 17 00:00:00 2001
 From: George Garside <apps@georgegarside.com>
 Date: Sun, 15 Feb 2026 15:36:58 +0000
 Subject: [PATCH 1/2] ALLOWED_HOSTS
 
 ---
- app/Http/Kernel.php                  |  2 ++
  app/Http/Middleware/AllowedHosts.php | 20 ++++++++++++++++++++
- 2 files changed, 22 insertions(+)
+ bootstrap/app.php                    | 11 ++++++++++-
+ 2 files changed, 30 insertions(+), 1 deletion(-)
  create mode 100644 app/Http/Middleware/AllowedHosts.php
 
-diff --git a/app/Http/Kernel.php b/app/Http/Kernel.php
-index 3b002cf5a2..c00f769fb8 100644
---- a/app/Http/Kernel.php
-+++ b/app/Http/Kernel.php
-@@ -23,6 +23,7 @@
-
- namespace FireflyIII\Http;
-
-+use FireflyIII\Http\Middleware\AllowedHosts;
- use FireflyIII\Http\Middleware\Authenticate;
- use FireflyIII\Http\Middleware\Binder;
- use FireflyIII\Http\Middleware\InstallationId;
-@@ -45,6 +46,7 @@
- class Kernel extends HttpKernel
- {
-     protected $middleware         = [
-+        AllowedHosts::class,
-         // SecureHeaders::class,
-         CheckForMaintenanceMode::class,
-         ValidatePostSize::class,
 diff --git a/app/Http/Middleware/AllowedHosts.php b/app/Http/Middleware/AllowedHosts.php
 new file mode 100644
 index 0000000000..27685d4d9a
@@ -55,5 +35,88 @@ index 0000000000..27685d4d9a
 +        return $next($request);
 +    }
 +}
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index dbf72c6244..a87249908d 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -23,6 +23,7 @@
+
+ use FireflyIII\Exceptions\Handler;
+ use FireflyIII\Http\Middleware\AcceptHeaders;
++use FireflyIII\Http\Middleware\AllowedHosts;
+ use FireflyIII\Http\Middleware\Authenticate;
+ use FireflyIII\Http\Middleware\Binder;
+ use FireflyIII\Http\Middleware\EncryptCookies;
+@@ -98,6 +99,7 @@ function stringIsEqual(string $left, string $right): bool
+                       // overrule the standard middleware
+                       $middleware->use(
+                           [
++                              AllowedHosts::class,
+                               InvokeDeferredCallbacks::class,
+                               \Illuminate\Http\Middleware\TrustProxies::class, // use the DEFAULT middleware for this.
+                               HandleCors::class,
+@@ -115,6 +117,7 @@ function stringIsEqual(string $left, string $right): bool
+                       // See https://laravel.com/docs/12.x/middleware for the default list.
+                       $middleware->group('web',
+                                          [
++                                             AllowedHosts::class,
+                                              EncryptCookies::class,
+                                              AddQueuedCookiesToResponse::class,
+                                              StartFireflyIIISession::class, // this is different.
+@@ -129,19 +132,21 @@ function stringIsEqual(string $left, string $right): bool
+                       // so here we replace the entire API group and add more sensible stuff.
+                       $middleware->group('api',
+                                          [
++                                             AllowedHosts::class,
+                                              AcceptHeaders::class,
+                                              // EnsureFrontendRequestsAreStateful::class,
+                                              'auth:api',
+                                              Binder::class,
+                           ]
+                       );
+-                      $middleware->appendToGroup('api_basic', [AcceptHeaders::class, Binder::class]);
++                      $middleware->appendToGroup('api_basic', [AllowedHosts::class, AcceptHeaders::class, Binder::class]);
+
+
+                       // "simple auth" means the user must be logged in and present,
+                       // but does not have to be 2FA authenticated. This is so all users
+                       // can always log out, for example.
+                       $middleware->appendToGroup('user-simple-auth', [
++                          AllowedHosts::class,
+                           Authenticate::class,
+                       ]);
+
+@@ -149,6 +154,7 @@ function stringIsEqual(string $left, string $right): bool
+                       // this includes 2FA etc.
+                       // incidentally, this group also includes the range middleware and the message thing.
+                       $middleware->appendToGroup('user-full-auth', [
++                          AllowedHosts::class,
+                           Authenticate::class,
+                           MFAMiddleware::class,
+                           Range::class,
+@@ -157,6 +163,7 @@ function stringIsEqual(string $left, string $right): bool
+                       // This middleware is added to ensure that the user is not only logged in and
+                       // authenticated (with MFA and everything), but also admin.
+                       $middleware->appendToGroup('admin', [
++                          AllowedHosts::class,
+                           Authenticate::class,
+                           MFAMiddleware::class,
+                           IsAdmin::class,
+@@ -167,6 +174,7 @@ function stringIsEqual(string $left, string $right): bool
+                       // if the user is not logged in, this group applies.
+                       // on top of everything else of course.
+                       $middleware->appendToGroup('user-not-logged-in', [
++                          AllowedHosts::class,
+                           Installer::class,
+                           RedirectIfAuthenticated::class,
+                       ]);
+@@ -175,6 +183,7 @@ function stringIsEqual(string $left, string $right): bool
+                       // it just makes sure strings from routes are bound to objects if possible.
+                       $middleware->group('binders-only',
+                                          [
++                                             AllowedHosts::class,
+                                              Installer::class,
+                                              EncryptCookies::class,
+                                              AddQueuedCookiesToResponse::class,
 --
 2.52.0

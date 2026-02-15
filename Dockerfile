@@ -38,7 +38,7 @@ RUN printf "\
 	chown -R www-data .
 USER www-data
 RUN mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
-ARG FIREFLY_VERSION=v6.4.21
+ARG FIREFLY_VERSION=v6.4.22
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches flyfire-patches
 RUN git apply flyfire-patches/*.patch && composer dump-autoload --optimize
