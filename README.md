@@ -43,6 +43,6 @@ This repository contains GitHub Actions that deploy updates pushed to main, once
 **To run locally** for development/testing, on macOS with apple/container,
 
 ```sh
-container build -t flyfire:latest .
-container run --rm -p 8080:8080 --name firefly --env-file .env -d -a amd64 -v storage:/var/www/html/storage flyfire:latest
+container build -t flyfire:latest -a amd64 .
+container run --rm -p 8080:8080 --name flyfire --env-file .env -d -a amd64 -v storage:/var/www/html/storage flyfire:latest
 ```

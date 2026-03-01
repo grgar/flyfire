@@ -25,12 +25,14 @@ awk -v a="fastcgi_param APP_URL $IMPORTER_APP_URL;" -v f="fastcgi_param FIREFLY_
 
 sed -i -E 's~.*open_basedir.*~php_admin_value[open_basedir] = /var/www:/dev/stdout:/tmp~' /etc/php/*/fpm/pool.d/www.conf
 
-if [ "$(< storage/ref)" == "$FLY_IMAGE_REF" ]; then
-	echo "skipping bootstrap"
-	exec /entrypoint
-	exit 0
+if [ -n "$FLY_IMAGE_REF" ]; then
+	if [ "$(< storage/ref)" == "$FLY_IMAGE_REF" ]; then
+		echo "skipping bootstrap"
+		exec /entrypoint
+		exit 0
+	fi
+	echo "$FLY_IMAGE_REF" >storage/ref
 fi
-echo "$FLY_IMAGE_REF" >storage/ref
 
 mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload,importer/{app,configurations,conversion-routines,debugbar,framework,import-jobs,jobs,logs,submission-routines,uploads}}
 chown -R www-data storage
