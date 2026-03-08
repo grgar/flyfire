@@ -1,7 +1,7 @@
 app = "whe"
 primary_region = "lhr"
 
-swap_size_mb = 256
+swap_size_mb = 1024
 
 [build]
 # image = "fireflyiii/core:version-6.1.25"
@@ -9,7 +9,7 @@ dockerfile = "Dockerfile"
 
 [[vm]]
 size = "shared-cpu-1x"
-memory = "256MB"
+memory = "512MB"
 
 [[restart]]
 policy = "never"
