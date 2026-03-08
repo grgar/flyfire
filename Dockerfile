@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:experimental
 
-ARG PHP_VERSION=8.4
-FROM fideloper/fly-laravel:${PHP_VERSION}
-ARG PHP_VERSION
+FROM fideloper/fly-laravel:8.4
 LABEL fly_launch_runtime="laravel"
 
 # from https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
@@ -10,12 +8,14 @@ ENV IS_DOCKER=true
 
 EXPOSE 8080
 
-ARG LANG=en
+ARG LANG=en PHP_VERSION=8.5
+RUN ln -sf /usr/sbin/php-fpm${PHP_VERSION} /usr/sbin/php-fpm
 RUN apt-get update && \
-	apt-get install -y language-pack-${LANG}-base && \
+	apt-get -y --no-install-recommends install php${PHP_VERSION}-bcmath php${PHP_VERSION}-cli php${PHP_VERSION}-common php${PHP_VERSION}-curl php${PHP_VERSION}-gd php${PHP_VERSION}-intl php${PHP_VERSION}-mbstring php${PHP_VERSION}-mysql php${PHP_VERSION}-pgsql php${PHP_VERSION}-redis php${PHP_VERSION}-soap php${PHP_VERSION}-sqlite3 php${PHP_VERSION}-xml php${PHP_VERSION}-zip php${PHP_VERSION}-fpm language-pack-${LANG}-base && \
 	apt-get clean && \
 	rm -rf /var/lib/apt/lists/*
 # https://github.com/orgs/firefly-iii/discussions/5051
+# and cp 8.4 config to ${PHP_VERSION} to copy from version used in source image
 RUN printf "\
 	opcache.jit=on\n\
 	opcache.enable=1\n\
@@ -31,6 +31,7 @@ RUN printf "\
 	realpath_cache_ttl=600\n\
 	memory_limit=200M\n\
 	max_execution_time=60\n" >> /etc/php/${PHP_VERSION}/fpm/php.ini && \
+	cp -r /etc/php/8.4/fpm/ /etc/php/${PHP_VERSION}/fpm/ && \
 	cp /etc/php/${PHP_VERSION}/fpm/php.ini /etc/php/${PHP_VERSION}/cli/php.ini && \
 	sed -i "s/fastcgi_buffers.*/fastcgi_buffering off;/" /etc/nginx/sites-enabled/default && \
 	sed -i "/fastcgi_buffer_size/d" /etc/nginx/sites-enabled/default && \
