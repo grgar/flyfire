@@ -37,7 +37,7 @@ if [ -n "$FLY_IMAGE_REF" ]; then
 	echo "$FLY_IMAGE_REF" >storage/ref
 fi
 
-mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload,importer/{app,configurations,conversion-routines,debugbar,framework,import-jobs,jobs,logs,submission-routines,uploads}}
+mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload,importer/{app,configurations,conversion-routines,debugbar,framework/{cache/data,sessions,views},import-jobs,jobs,logs,submission-routines,uploads}}
 chown -R www-data storage
 # based on https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
 rm -rf storage/{,importer/}{logs/*.log,framework/cache}
