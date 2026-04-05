@@ -1,50 +1,73 @@
-#!/bin/bash
+#!/bin/sh
 
-: "${FIREFLY_HOST:=firefly}"
-: "${IMPORTER_HOST:=importer}"
+set -ex
 
-: "${FIREFLY_APP_URL:=http://${FIREFLY_HOST}}"
-: "${FIREFLY_FLYCAST_URL:=http://localhost:8080}"
-: "${IMPORTER_APP_URL:=http://${IMPORTER_HOST}}"
+export FIREFLY_HOST="${FIREFLY_HOST:-firefly}"
+export IMPORTER_HOST="${IMPORTER_HOST:-importer}"
 
-timeout=600
+export FIREFLY_APP_URL="${FIREFLY_APP_URL:-http://${FIREFLY_HOST}}"
+export FIREFLY_FLYCAST_URL="${FIREFLY_FLYCAST_URL:-http://localhost:8080}"
+export IMPORTER_APP_URL="${IMPORTER_APP_URL:-http://${IMPORTER_HOST}}"
 
-awk -v a="fastcgi_param APP_URL $FIREFLY_APP_URL; proxy_connect_timeout $timeout; proxy_send_timeout $timeout; proxy_read_timeout $timeout; send_timeout $timeout;" -v h="$FIREFLY_HOST" '
-	/^[[:space:]]*server_name/ { print "\tserver_name " h ";" ; next }
-	/location ~ \\.php\$/ { print; inphp=1; next }
-	inphp && /fastcgi_pass/ { print; print "\t\t" a; inphp=0; next }
-	{ print }
-' /etc/nginx/sites-available/default >/etc/nginx/sites-enabled/default
-
-awk -v a="fastcgi_param APP_URL $IMPORTER_APP_URL; proxy_connect_timeout $timeout; proxy_send_timeout $timeout; proxy_read_timeout $timeout; send_timeout $timeout;" -v f="fastcgi_param FIREFLY_III_URL $FIREFLY_FLYCAST_URL;" -v h="$IMPORTER_HOST" -v r="/var/www/importer/public" '
-	/^[[:space:]]*listen/ { gsub(/default_server/,""); gsub(/[ \t]+;/,";"); sub(/[ \t]+$/,""); print; next }
-	/^[[:space:]]*server_name/ { print "\tserver_name " h ";" ; next }
-	/^[[:space:]]*root/ { print "\troot " r ";" ; next }
-	/location ~ \\.php\$/ { print; inphp=1; next }
-	inphp && /fastcgi_pass/ { print; print "\t\t" a; print "\t\t" f; inphp=0; next }
-	{ print }
-' /etc/nginx/sites-available/default >/etc/nginx/sites-enabled/importer
-
-sed -i -E 's~.*open_basedir.*~php_admin_value[open_basedir] = /var/www:/dev/stdout:/tmp~' /etc/php/*/fpm/pool.d/www.conf
-sed -i -E 's~.*max_execution_time.*~php_admin_value[max_execution_time] = '"$timeout"'~' /etc/php/*/fpm/pool.d/www.conf
+envsubst '$FIREFLY_HOST $IMPORTER_HOST $FIREFLY_APP_URL $IMPORTER_APP_URL $FIREFLY_FLYCAST_URL $TIMEOUT' < /etc/nginx/default.conf > /etc/nginx/http.d/default.conf
 
 if [ -n "$FLY_IMAGE_REF" ]; then
-	if [ "$(< storage/ref)" == "$FLY_IMAGE_REF" ]; then
+	if [ "$(cat storage/ref)" = "$FLY_IMAGE_REF" ]; then
 		echo "skipping bootstrap"
-		exec /entrypoint
+
+		echo "starting php-fpm"
+		php-fpm &
+		echo "starting nginx"
+		nginx -g "daemon off;"
+
 		exit 0
 	fi
 	echo "$FLY_IMAGE_REF" >storage/ref
 fi
 
-mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload,importer/{app,configurations,conversion-routines,debugbar,framework/{cache/data,sessions,views},import-jobs,jobs,logs,submission-routines,uploads}}
 chown -R www-data storage
+mkdir -p \
+  storage/app/public \
+  storage/build \
+  storage/database \
+  storage/debugbar \
+  storage/export \
+  storage/framework/cache/data \
+  storage/framework/sessions \
+  storage/framework/testing \
+  storage/framework/views/twig \
+  storage/framework/views/v1 \
+  storage/framework/views/v2 \
+  storage/logs \
+  storage/upload \
+  storage/importer/app \
+  storage/importer/configurations \
+  storage/importer/conversion-routines \
+  storage/importer/debugbar \
+  storage/importer/framework/cache/data \
+  storage/importer/framework/sessions \
+  storage/importer/framework/views \
+  storage/importer/import-jobs \
+  storage/importer/jobs \
+  storage/importer/logs \
+  storage/importer/submission-routines \
+  storage/importer/uploads
 # based on https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
-rm -rf storage/{,importer/}{logs/*.log,framework/cache}
-php artisan migrate --seed
+rm -rf storage/logs/*.log storage/framework/cache
+rm -rf storage/importer/logs/*.log storage/importer/framework/cache
+php artisan migrate
 php artisan firefly-iii:upgrade-database
 php artisan firefly-iii:laravel-passport-keys
 php artisan optimize
 chown -R www-data storage ../importer/storage
 
-exec /entrypoint
+trap 'kill $(jobs -p)' TERM INT
+
+echo "starting php-fpm"
+php-fpm &
+fpm_pid=$!
+echo "starting nginx"
+nginx -g "daemon off;" -e stderr &
+nginx_pid=$!
+
+wait $fpm_pid $nginx_pid

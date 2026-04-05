@@ -1,48 +1,27 @@
 # syntax=docker/dockerfile:experimental
 
-FROM fideloper/fly-laravel:8.4
-LABEL fly_launch_runtime="laravel"
+FROM php:8.5.4-fpm-alpine3.23
 
 # from https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
 ENV IS_DOCKER=true
 
 EXPOSE 8080
+RUN apk add --no-cache nginx postgresql-dev git envsubst
+RUN docker-php-ext-install bcmath intl pdo_mysql pdo_pgsql
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" && \
+	sed -i -e "s~.*max_execution_time.*~max_execution_time = 600~" "$PHP_INI_DIR/php.ini"
+COPY --chown=www-data:root nginx/default.conf /etc/nginx/default.conf
+COPY nginx/access-log.conf /etc/nginx/http.d/access-log.conf
+COPY php/opcache.ini /usr/local/etc/php/conf.d/
+RUN printf "[www]\nuser = www-data\ngroup = www-data\n" > /usr/local/etc/php-fpm.d/user.conf && \
+sed -i -e "s~user nginx;~user www-data;~" /etc/nginx/nginx.conf
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && chmod +x /usr/local/bin/composer
 
-ARG LANG=en PHP_VERSION=8.5
-RUN ln -sf /usr/sbin/php-fpm${PHP_VERSION} /usr/sbin/php-fpm
-RUN apt-get update && \
-	apt-get -y --no-install-recommends install php${PHP_VERSION}-bcmath php${PHP_VERSION}-cli php${PHP_VERSION}-common php${PHP_VERSION}-curl php${PHP_VERSION}-gd php${PHP_VERSION}-intl php${PHP_VERSION}-mbstring php${PHP_VERSION}-mysql php${PHP_VERSION}-pgsql php${PHP_VERSION}-redis php${PHP_VERSION}-soap php${PHP_VERSION}-sqlite3 php${PHP_VERSION}-xml php${PHP_VERSION}-zip php${PHP_VERSION}-fpm language-pack-${LANG}-base && \
-	apt-get clean && \
-	rm -rf /var/lib/apt/lists/*
-# https://github.com/orgs/firefly-iii/discussions/5051
-# and cp 8.4 config to ${PHP_VERSION} to copy from version used in source image
-RUN printf "\
-	opcache.jit=on\n\
-	opcache.enable=1\n\
-	opcache.enable_cli=1\n\
-	opcache.memory_consumption=256\n\
-	opcache.interned_strings_buffer=16\n\
-	opcache.max_accelerated_files=10000\n\
-	opcache.revalidate_freq=2\n\
-	opcache.validate_timestamps=0\n\
-	opcache.save_comments=1\n" >> /etc/php/${PHP_VERSION}/mods-available/opcache.ini && \
-	printf "\
-	realpath_cache_size=4M\n\
-	realpath_cache_ttl=600\n\
-	memory_limit=200M\n\
-	max_execution_time=60\n" >> /etc/php/${PHP_VERSION}/fpm/php.ini && \
-	cp -r /etc/php/8.4/fpm/ /etc/php/${PHP_VERSION}/fpm/ && \
-	cp /etc/php/${PHP_VERSION}/fpm/php.ini /etc/php/${PHP_VERSION}/cli/php.ini && \
-	sed -i "s/fastcgi_buffers.*/fastcgi_buffering off;/" /etc/nginx/sites-enabled/default && \
-	sed -i "/fastcgi_buffer_size/d" /etc/nginx/sites-enabled/default && \
-	sed -i "s|^command=.*|command=/bin/sh -c 'while [ ! -S /var/run/php/php-fpm.sock ]; do sleep 0.1; done; exec /usr/local/bin/start-nginx'|" /etc/supervisor/conf.d/nginx.conf && \
-	chown -R www-data .
 USER www-data
-RUN mkdir -p storage/{app/public,build,database,debugbar,export,framework/{cache/data,sessions,testing,views/{twig,v1,v2}},logs,upload}
 ARG FIREFLY_VERSION=v6.4.23
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
-COPY patches flyfire-patches
-RUN git apply flyfire-patches/*.patch && composer dump-autoload --optimize
+COPY patches .
+RUN git apply *.patch && composer dump-autoload --optimize
 
 ARG FIREFLY_DATA_IMPORTER_VERSION=v2.1.1
 WORKDIR /var/www/importer
