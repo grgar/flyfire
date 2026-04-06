@@ -25,41 +25,40 @@ if [ -n "$FLY_IMAGE_REF" ]; then
 	echo "$FLY_IMAGE_REF" >storage/ref
 fi
 
-chown -R www-data storage
-mkdir -p \
-  storage/app/public \
-  storage/build \
-  storage/database \
-  storage/debugbar \
-  storage/export \
-  storage/framework/cache/data \
-  storage/framework/sessions \
-  storage/framework/testing \
-  storage/framework/views/twig \
-  storage/framework/views/v1 \
-  storage/framework/views/v2 \
-  storage/logs \
-  storage/upload \
-  storage/importer/app \
-  storage/importer/configurations \
-  storage/importer/conversion-routines \
-  storage/importer/debugbar \
-  storage/importer/framework/cache/data \
-  storage/importer/framework/sessions \
-  storage/importer/framework/views \
-  storage/importer/import-jobs \
-  storage/importer/jobs \
-  storage/importer/logs \
-  storage/importer/submission-routines \
-  storage/importer/uploads
 # based on https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
 rm -rf storage/logs/*.log storage/framework/cache
 rm -rf storage/importer/logs/*.log storage/importer/framework/cache
-php artisan migrate
+storage_dirs="
+  storage/app/public
+  storage/build
+  storage/database
+  storage/debugbar
+  storage/export
+  storage/framework/cache/data
+  storage/framework/sessions
+  storage/framework/testing
+  storage/framework/views/twig
+  storage/framework/views/v1
+  storage/framework/views/v2
+  storage/logs
+  storage/upload
+  storage/importer/app
+  storage/importer/configurations
+  storage/importer/conversion-routines
+  storage/importer/debugbar
+  storage/importer/framework/cache/data
+  storage/importer/framework/sessions
+  storage/importer/framework/views
+  storage/importer/import-jobs
+  storage/importer/jobs
+  storage/importer/logs
+  storage/importer/submission-routines
+  storage/importer/uploads"
+mkdir -p $storage_dirs
+chown www-data $storage_dirs
 php artisan firefly-iii:upgrade-database
 php artisan firefly-iii:laravel-passport-keys
 php artisan optimize
-chown -R www-data storage ../importer/storage
 
 trap 'kill $(jobs -p)' TERM INT
 
