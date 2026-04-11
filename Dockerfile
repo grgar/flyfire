@@ -22,12 +22,12 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 WORKDIR /var/www/html
 RUN mkdir -p ../importer storage/importer && chown -R nginx:www-data /var/www /var/log/php85
 USER nginx
-ARG FIREFLY_VERSION=v6.4.23
+ARG FIREFLY_VERSION=v6.5.9
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches .
 RUN git apply *.patch && composer dump-autoload --optimize
 
-ARG FIREFLY_DATA_IMPORTER_VERSION=v2.1.1
+ARG FIREFLY_DATA_IMPORTER_VERSION=v2.2.2
 WORKDIR ../importer
 RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-${FIREFLY_DATA_IMPORTER_VERSION%%-*}.tar.gz | tar xzf -
 RUN rm -rf storage && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
