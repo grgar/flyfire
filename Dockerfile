@@ -6,7 +6,7 @@ FROM alpine:3.23
 ENV IS_DOCKER=true
 
 EXPOSE 8080
-RUN apk add --no-cache php85 php85-fpm php85-bcmath php85-dom php85-fileinfo php85-intl php85-iconv php85-mbstring php85-pdo_mysql php85-pdo_pgsql php85-phar php85-session php85-sodium php85-tokenizer php85-xml php85-xmlreader php85-xmlwriter nginx git envsubst curl shadow
+RUN apk add --no-cache php85 php85-fpm php85-bcmath php85-curl php85-dom php85-fileinfo php85-intl php85-iconv php85-mbstring php85-pdo_mysql php85-pdo_pgsql php85-phar php85-session php85-simplexml php85-sodium php85-tokenizer php85-xml php85-xmlreader php85-xmlwriter nginx git envsubst curl shadow
 RUN ln -s /usr/bin/php85 /usr/bin/php && ln -s /usr/sbin/php-fpm85 /usr/sbin/php-fpm
 RUN sed -i -e "s/.*max_execution_time.*/max_execution_time = 600/" "/etc/php85/php.ini"
 RUN sed -i -e "s/.*clear_env.*/clear_env = no/" -e "s/nobody/www-data/" "/etc/php85/php-fpm.d/www.conf"
@@ -25,7 +25,9 @@ USER nginx
 ARG FIREFLY_VERSION=v6.5.9
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches .
-RUN git apply *.patch && composer dump-autoload --optimize
+RUN git apply *.patch && \
+	composer require fruitcake/laravel-debugbar:"^4@beta" --dev --no-scripts && \
+	composer dump-autoload --optimize
 
 ARG FIREFLY_DATA_IMPORTER_VERSION=v2.2.2
 WORKDIR ../importer

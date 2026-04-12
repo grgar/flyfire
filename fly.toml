@@ -69,3 +69,5 @@ QUEUE_DRIVER = "sync"
 CACHE_PREFIX = "firefly"
 TRUSTED_PROXIES = "**"
 QUERY_PARSER_IMPLEMENTATION = "new"
+DEBUGBAR_ENABLED = "false"
+DISABLE_CSP_HEADER = "false" # firefly config option required if debugbar is enabled
