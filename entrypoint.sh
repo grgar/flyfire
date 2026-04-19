@@ -11,14 +11,20 @@ export IMPORTER_APP_URL="${IMPORTER_APP_URL:-http://${IMPORTER_HOST}}"
 
 envsubst '$FIREFLY_HOST $IMPORTER_HOST $FIREFLY_APP_URL $IMPORTER_APP_URL $FIREFLY_FLYCAST_URL $TIMEOUT' < /etc/nginx/default.conf > /etc/nginx/http.d/default.conf
 
+trap 'kill $(jobs -p)' TERM INT
+
 if [ -n "$FLY_IMAGE_REF" ]; then
 	if [ "$(cat storage/ref)" = "$FLY_IMAGE_REF" ]; then
 		echo "skipping bootstrap"
 
 		echo "starting php-fpm"
 		php-fpm &
+		fpm_pid=$!
 		echo "starting nginx"
-		nginx -g "daemon off;"
+		nginx -g "daemon off;" -e stderr &
+		nginx_pid=$!
+
+		wait $fpm_pid $nginx_pid
 
 		exit 0
 	fi
@@ -59,8 +65,6 @@ chown www-data $storage_dirs
 php artisan firefly-iii:upgrade-database
 php artisan firefly-iii:laravel-passport-keys
 php artisan optimize
-
-trap 'kill $(jobs -p)' TERM INT
 
 echo "starting php-fpm"
 php-fpm &
