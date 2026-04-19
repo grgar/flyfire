@@ -1,4 +1,4 @@
-From 9c069d9a652fa5ed570e279c00d4cde23d47e039 Mon Sep 17 00:00:00 2001
+From 9a1cf1570eed2e89fff4e551521ae5933d1c5190 Mon Sep 17 00:00:00 2001
 From: George Garside <apps@georgegarside.com>
 Date: Sun, 15 Feb 2026 15:36:58 +0000
 Subject: [PATCH 1/2] ALLOWED_HOSTS

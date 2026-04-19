@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:experimental
 
-FROM alpine:3.23
+FROM alpine:3.23.4
 
 # from https://dev.azure.com/Firefly-III/_git/MainImage?path=/entrypoint.sh
 ENV IS_DOCKER=true
@@ -23,14 +23,14 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 WORKDIR /var/www/html
 RUN mkdir -p ../importer storage/importer && chown -R nginx:www-data /var/www /var/log/php85
 USER nginx
-ARG FIREFLY_VERSION=v6.5.9
+ARG FIREFLY_VERSION=v6.6.1
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches .
 RUN git apply *.patch && \
 	composer require fruitcake/laravel-debugbar:"^4@beta" --dev --no-scripts && \
 	composer dump-autoload --optimize
 
-ARG FIREFLY_DATA_IMPORTER_VERSION=v2.2.2
+ARG FIREFLY_DATA_IMPORTER_VERSION=v2.3.2
 WORKDIR ../importer
 RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-${FIREFLY_DATA_IMPORTER_VERSION%%-*}.tar.gz | tar xzf -
 RUN rm -rf storage && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
