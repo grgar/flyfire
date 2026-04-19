@@ -8,8 +8,9 @@ ENV IS_DOCKER=true
 EXPOSE 8080
 RUN apk add --no-cache php85 php85-fpm php85-bcmath php85-curl php85-dom php85-fileinfo php85-intl php85-iconv php85-mbstring php85-pdo_mysql php85-pdo_pgsql php85-phar php85-session php85-simplexml php85-sodium php85-tokenizer php85-xml php85-xmlreader php85-xmlwriter nginx git envsubst curl shadow
 RUN ln -s /usr/bin/php85 /usr/bin/php && ln -s /usr/sbin/php-fpm85 /usr/sbin/php-fpm
-RUN sed -i -e "s/.*max_execution_time.*/max_execution_time = 600/" "/etc/php85/php.ini"
-RUN sed -i -e "s/.*clear_env.*/clear_env = no/" -e "s/nobody/www-data/" "/etc/php85/php-fpm.d/www.conf"
+RUN sed -i -e "s/.*max_execution_time.*/max_execution_time = 600/" "/etc/php85/php.ini" && \
+	sed -i -e "s~.*error_log.*~error_log = /proc/self/fd/2~" "/etc/php85/php-fpm.conf" && \
+	sed -i -e "s/.*clear_env.*/clear_env = no/" -e "s/nobody/www-data/" -e "s/pm.max_children.*/pm.max_children = 10/" -e "s/pm.max_spare_servers.*/pm.max_spare_servers = 10/" -e "s/.*catch_workers_output.*/catch_workers_output = yes/" -e "s/decorate_workers_output.*/decorate_workers_output = yes/" "/etc/php85/php-fpm.d/www.conf"
 COPY nginx/default.conf /etc/nginx/default.conf
 COPY nginx/access-log.conf /etc/nginx/http.d/access-log.conf
 COPY php/opcache.ini /etc/php85/conf.d/
