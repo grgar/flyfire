@@ -62,10 +62,14 @@ storage_dirs="
   storage/importer/uploads"
 mkdir -p $storage_dirs
 chown -R www-data $storage_dirs
-php artisan firefly-iii:upgrade-database
+[ -z "$SKIP_UPGRADE" ] && php artisan firefly-iii:upgrade-database
 php artisan firefly-iii:laravel-passport-keys
 php artisan optimize
-chown -R www-data $storage_dirs
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
+chown -R www-data $storage_dirs || :
 
 echo "starting php-fpm"
 php-fpm &
