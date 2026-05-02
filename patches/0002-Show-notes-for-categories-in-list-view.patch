@@ -1,4 +1,4 @@
-From edf39e86fda25ca34347e55884748c8a172a313c Mon Sep 17 00:00:00 2001
+From 990e75d5f6fde8099fd286d7e6be00aede0f08d1 Mon Sep 17 00:00:00 2001
 From: George Garside <apps@georgegarside.com>
 Date: Sun, 15 Feb 2026 15:43:43 +0000
 Subject: [PATCH 2/2] Show notes for categories in list view
@@ -19,7 +19,7 @@ index 6e6443fd14..6ea8480d73 100644
 -        return $this->user->categories()->with(['attachments'])->orderBy('name', 'ASC')->get();
 +        return $this->user->categories()->with(['attachments', 'notes'])->orderBy('name', 'ASC')->get();
      }
-
+ 
      public function getNoteText(Category $category): ?string
 diff --git a/resources/views/list/categories.twig b/resources/views/list/categories.twig
 index 43b7c677e3..12173b2455 100644
@@ -35,5 +35,6 @@ index 43b7c677e3..12173b2455 100644
              </td>
              {% if category.lastActivity %}
                  <td class="hidden-sm hidden-xs" data-value="{{ category.lastActivity.format('Y-m-d H-i-s') }}">
---
+-- 
 2.53.0
+
