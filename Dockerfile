@@ -30,7 +30,7 @@ RUN git apply *.patch && \
 	composer require fruitcake/laravel-debugbar:"^4@beta" --dev --no-scripts && \
 	composer dump-autoload --optimize
 
-ARG FIREFLY_DATA_IMPORTER_VERSION=v2.3.2
+ARG FIREFLY_DATA_IMPORTER_VERSION=develop-20260522
 WORKDIR ../importer
 RUN curl -L https://github.com/firefly-iii/data-importer/releases/download/${FIREFLY_DATA_IMPORTER_VERSION}/DataImporter-${FIREFLY_DATA_IMPORTER_VERSION%%-*}.tar.gz | tar xzf -
 RUN rm -rf storage && ln -s ../html/storage/importer storage && composer dump-autoload --optimize
