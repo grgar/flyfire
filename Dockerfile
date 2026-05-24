@@ -23,7 +23,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 WORKDIR /var/www/html
 RUN mkdir -p ../importer storage/importer && chown -R nginx:www-data /var/www /var/log/php85
 USER nginx
-ARG FIREFLY_VERSION=v6.6.2
+ARG FIREFLY_VERSION=v6.6.3
 RUN curl -L https://github.com/firefly-iii/firefly-iii/releases/download/${FIREFLY_VERSION}/FireflyIII-${FIREFLY_VERSION}.tar.gz | tar xzf -
 COPY patches .
 RUN git apply *.patch && \
