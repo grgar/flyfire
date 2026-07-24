@@ -46,3 +46,10 @@ This repository contains GitHub Actions that deploy updates pushed to main, once
 container build -t flyfire:latest
 container run --rm -p 8080:8080 --name flyfire --env-file .env -d -v storage:/var/www/html/storage flyfire:latest
 ```
+
+If oauth-private.key cannot be found
+
+```
+container exec -it flyfire php artisan correction:restore-oauth-keys
+container exec -it flyfire chown www-data:nginx storage/oauth-{private,public}.key
+```
