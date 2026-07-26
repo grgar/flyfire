@@ -24,6 +24,8 @@ ARG FIREFLY_MCP_VERSION=1.4.0
 RUN apk add --no-cache nodejs npm && \
 	npm install -g @firefly-iii-mcp/server@${FIREFLY_MCP_VERSION} && \
 	apk del npm
+# /mcp authorises OAuth tokens with auth_request; fail the build, not a request, if it's missing
+RUN nginx -V 2>&1 | grep -q -- --with-http_auth_request_module
 
 WORKDIR /var/www/html
 RUN mkdir -p ../importer storage/importer && chown -R nginx:www-data /var/www /var/log/php85

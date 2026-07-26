@@ -39,14 +39,28 @@ Flyfire configures the following on top of a default setup:
 5. `cp .env{.example,}` and edit `.env`
 6. `fly secrets import <.env`
 
-**To enable the MCP server**, so MCP clients (Claude, etc.) can read and write your Firefly data:
+**To enable the MCP server**, so MCP clients can read and write your Firefly data, create a Personal Access Token in Firefly under Options → Profile → OAuth and set it as a secret:
 
-1. In Firefly, create a Personal Access Token under Options → Profile → OAuth.
-2. Generate a separate bearer token for the MCP endpoint, e.g. `openssl rand -hex 32`. nginx checks this token before anything reaches the MCP server, so the endpoint is unusable without it; if either secret is unset the MCP server is not started at all.
-3. `fly secrets set FIREFLY_III_PAT=<token from step 1> MCP_TOKEN=<token from step 2>`
-4. Point your MCP client at `https://<FIREFLY_HOST>/mcp` (Streamable HTTP transport) with header `Authorization: Bearer <MCP_TOKEN>`.
+```sh
+fly secrets set FIREFLY_III_PAT=<token>
+```
+
+That's all that's needed — `/mcp` is then served on the Firefly host over Streamable HTTP. Nothing reaches the MCP server without passing one of two authorisation checks in nginx.
+
+*OAuth* (for clients that only take a client ID and secret, such as Claude Desktop and Cowork). Firefly is its own OAuth authorisation server via Laravel Passport, so it issues the credentials itself — no separate identity provider:
+
+1. In Firefly, Options → Profile → OAuth → Clients → Create new client, with redirect URL `https://claude.ai/api/mcp/auth_callback`.
+2. In the client, add a custom connector for `https://<FIREFLY_HOST>/mcp` and put the client ID and secret into its advanced/OAuth settings.
+3. Approve the connection in the browser window Firefly opens.
+
+The client discovers the rest through `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`, which nginx serves. Tokens are issued, scoped, expired and revoked by Firefly, so access can be withdrawn at any time from Options → Profile → OAuth without redeploying.
+
+*Static token* (for CLI clients and scripts that send a header directly). Set `MCP_TOKEN` to a random value, e.g. `openssl rand -hex 32`, and send it as `Authorization: Bearer <MCP_TOKEN>`. Leave `MCP_TOKEN` unset to disable this path entirely — the entrypoint then substitutes a random value that no client can send.
 
 The MCP server ([`@firefly-iii-mcp/server`](https://github.com/etnperlong/firefly-iii-mcp)) runs inside the same machine, listening only on localhost and talking to Firefly over the loopback nginx, so requests to `/mcp` wake a stopped machine like any other traffic and nothing else needs to be deployed. To trim the ~90 registered tools to a smaller set, add `--preset` or `--tools` flags in `entrypoint.sh` (see the [upstream docs](https://github.com/etnperlong/firefly-iii-mcp#tool-presets)).
+
+> [!Note]
+> The MCP server holds a single PAT and acts as its owner for every request, because it has no per-request authorisation of its own. On a multi-user instance that means any account able to obtain a token could reach the PAT owner's data, so point `MCP_AUTH_PROBE` at a URL only the intended user can read (an owned account, say `http://localhost:8080/api/v1/accounts/1`) instead of the default `/api/v1/about/user`, which merely proves the token is valid.
 
 This repository contains GitHub Actions that deploy updates pushed to main, once your initial deployment is complete. For these actions to work, flyctl needs authenticating in GitHub: run `fly tokens create deploy` locally and set `FLY_API_TOKEN` to this value in the repository settings.
 
