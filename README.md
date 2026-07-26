@@ -28,6 +28,7 @@ Flyfire configures the following on top of a default setup:
 - ⚙️ the Data Importer alongside Firefly, preconfigured with knowledge of where Firefly and how to internally communicate with it, but using OAuth for authorisation
 - ⚙️ `ALLOWED_HOSTS` to restrict access to a custom domain
 - ⚙️ automatic upgrading of database when a new version is deployed
+- ⚙️ optional [MCP server](https://github.com/etnperlong/firefly-iii-mcp) at `/mcp` so AI assistants can manage Firefly over its API
 
 **To deploy your own instance**, create an account on fly.io, then
 
@@ -37,6 +38,15 @@ Flyfire configures the following on top of a default setup:
 4. `fly deploy --ha=false`
 5. `cp .env{.example,}` and edit `.env`
 6. `fly secrets import <.env`
+
+**To enable the MCP server**, so MCP clients (Claude, etc.) can read and write your Firefly data:
+
+1. In Firefly, create a Personal Access Token under Options → Profile → OAuth.
+2. Generate a separate bearer token for the MCP endpoint, e.g. `openssl rand -hex 32`. nginx checks this token before anything reaches the MCP server, so the endpoint is unusable without it; if either secret is unset the MCP server is not started at all.
+3. `fly secrets set FIREFLY_III_PAT=<token from step 1> MCP_TOKEN=<token from step 2>`
+4. Point your MCP client at `https://<FIREFLY_HOST>/mcp` (Streamable HTTP transport) with header `Authorization: Bearer <MCP_TOKEN>`.
+
+The MCP server ([`@firefly-iii-mcp/server`](https://github.com/etnperlong/firefly-iii-mcp)) runs inside the same machine, listening only on localhost and talking to Firefly over the loopback nginx, so requests to `/mcp` wake a stopped machine like any other traffic and nothing else needs to be deployed. To trim the ~90 registered tools to a smaller set, add `--preset` or `--tools` flags in `entrypoint.sh` (see the [upstream docs](https://github.com/etnperlong/firefly-iii-mcp#tool-presets)).
 
 This repository contains GitHub Actions that deploy updates pushed to main, once your initial deployment is complete. For these actions to work, flyctl needs authenticating in GitHub: run `fly tokens create deploy` locally and set `FLY_API_TOKEN` to this value in the repository settings.
 
