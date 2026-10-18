@@ -21,8 +21,14 @@ RUN printf "[www]\nuser = www-data\ngroup = www-data\n" > /etc/php85/php-fpm.d/u
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && chmod +x /usr/local/bin/composer
 
 ARG FIREFLY_MCP_VERSION=1.4.0
+COPY mcp-patches /tmp/mcp-patches
+# Patched to run /mcp stateless: the stock server keeps Streamable HTTP
+# sessions in an in-memory map, which is wiped every time the machine
+# scales to zero, so clients get "No valid session ID provided" on wake.
 RUN apk add --no-cache nodejs npm && \
 	npm install -g @firefly-iii-mcp/server@${FIREFLY_MCP_VERSION} && \
+	( cd "$(npm root -g)/@firefly-iii-mcp/server" && git apply /tmp/mcp-patches/*.patch ) && \
+	rm -rf /tmp/mcp-patches && \
 	apk del npm
 # /mcp authorises OAuth tokens with auth_request; fail the build, not a request, if it's missing
 RUN nginx -V 2>&1 | grep -q -- --with-http_auth_request_module

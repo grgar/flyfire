@@ -1,0 +1,93 @@
+--- a/dist/server.js
++++ b/dist/server.js
+@@ -46,73 +46,26 @@
+     app.get('/health', (req, res) => {
+         res.status(200).json({ status: 'ok' });
+     });
+-    // Main MCP endpoint for Streamable HTTP
++    // Main MCP endpoint for Streamable HTTP, run stateless: a fresh transport
++    // and server are created per request and torn down afterwards, so there's
++    // no session held in memory that a process restart (e.g. Fly scale-to-zero)
++    // can invalidate.
+     app.all('/mcp', async (req, res) => {
+         logDebug(`Received ${req.method} request to /mcp`);
+         try {
+-            // Check for existing session ID
+-            const sessionId = req.headers['mcp-session-id'];
+-            let transport;
+-            if (sessionId && transports[sessionId]) {
+-                // Check if the transport is of the correct type
+-                const existingTransport = transports[sessionId];
+-                if (existingTransport instanceof StreamableHTTPServerTransport) {
+-                    // Reuse existing transport
+-                    transport = existingTransport;
+-                }
+-                else {
+-                    // Transport exists but is not a StreamableHTTPServerTransport
+-                    res.status(400).json({
+-                        jsonrpc: '2.0',
+-                        error: {
+-                            code: -32000,
+-                            message: 'Bad Request: Session exists but uses a different transport protocol',
+-                        },
+-                        id: null,
+-                    });
+-                    return;
+-                }
+-            }
+-            else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
+-                const eventStore = new InMemoryEventStore();
+-                transport = new StreamableHTTPServerTransport({
+-                    sessionIdGenerator: () => randomUUID(),
+-                    eventStore, // Enable resumability
+-                    onsessioninitialized: (sessionId) => {
+-                        // Store the transport by session ID when session is initialized
+-                        logDebug(`StreamableHTTP session initialized with ID: ${sessionId}`);
+-                        transports[sessionId] = transport;
+-                    }
+-                });
+-                // Set up onclose handler to clean up transport when closed
+-                transport.onclose = () => {
+-                    const sid = transport.sessionId;
+-                    if (sid && transports[sid]) {
+-                        logDebug(`Transport closed for session ${sid}, removing from transports map`);
+-                        delete transports[sid];
+-                    }
+-                };
+-                // Connect the transport to the MCP server
+-                const mcpServerConfig = {
+-                    baseUrl,
+-                    pat,
+-                    enableToolTags
+-                };
+-                const server = getServer(mcpServerConfig);
+-                await server.connect(transport);
+-            }
+-            else {
+-                // Invalid request - no session ID or not initialization request
+-                res.status(400).json({
+-                    jsonrpc: '2.0',
+-                    error: {
+-                        code: -32000,
+-                        message: 'Bad Request: No valid session ID provided',
+-                    },
+-                    id: null,
+-                });
+-                return;
+-            }
++            const transport = new StreamableHTTPServerTransport({
++                sessionIdGenerator: undefined,
++            });
++            res.on('close', () => {
++                transport.close();
++            });
++            const mcpServerConfig = {
++                baseUrl,
++                pat,
++                enableToolTags
++            };
++            const server = getServer(mcpServerConfig);
++            await server.connect(transport);
+             // Handle the request with the transport
+             await transport.handleRequest(req, res, req.body);
+         }
