@@ -64,6 +64,16 @@ The MCP server ([`@firefly-iii-mcp/server`](https://github.com/etnperlong/firefl
 
 This repository contains GitHub Actions that deploy updates pushed to main, once your initial deployment is complete. For these actions to work, flyctl needs authenticating in GitHub: run `fly tokens create deploy` locally and set `FLY_API_TOKEN` to this value in the repository settings.
 
+**Daily import.** `.github/workflows/import.yml` runs the GoCardless imports once a day (03:00 UTC). It wakes the machine, keeps it awake with a `/health` poll while `php artisan importer:import` runs over `fly ssh console` (the autoupload endpoint is limited by Fly's request timeout), then checks that each feed has a recent transaction. This repository is public, so the importer's output is never printed. Add these as repository secrets:
+
+| secret | value |
+|---|---|
+| `IMPORT_CONFIG_1` to `IMPORT_CONFIG_4` | each importer JSON config as one line of base64, e.g. `base64 -i config.json \| tr -d '
+' \| gh secret set IMPORT_CONFIG_1` |
+| `FIREFLY_PAT` | a Firefly personal access token |
+
+GoCardless consents lapse every 90 days; when one does the run fails with an error naming the feed's number. If `fly ssh` is refused for the deploy token in `FLY_API_TOKEN`, create one with `fly tokens create ssh`. Run it by hand from the Actions tab (optionally with a space-separated list of feed numbers), or locally with `DEBUG=1 scripts/daily-import.sh` to see the importer's output.
+
 **To run locally** for development/testing, on macOS with apple/container,
 
 ```sh
