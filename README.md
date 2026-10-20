@@ -72,7 +72,7 @@ This repository contains GitHub Actions that deploy updates pushed to main, once
 ' \| gh secret set IMPORT_CONFIG_1` |
 | `FIREFLY_PAT` | a Firefly personal access token |
 
-GoCardless consents lapse every 90 days; when one does the run fails with an error naming the feed's number. If `fly ssh` is refused for the deploy token in `FLY_API_TOKEN`, create one with `fly tokens create ssh`. Run it by hand from the Actions tab (optionally with a space-separated list of feed numbers), or locally with `DEBUG=1 scripts/daily-import.sh` to see the importer's output.
+GoCardless consents lapse every 90 days; when one does the run fails with an error naming the feed's number. If `fly ssh` is refused for the deploy token in `FLY_API_TOKEN`, create one with `fly tokens create ssh`. Run it by hand from the Actions tab (optionally with a space-separated list of feed numbers), or locally with `DEBUG=1 scripts/daily-import.sh` to see the importer's output (`DEBUG` is ignored in Actions, because the log is public). Before importing, the run checks that `fly ssh` works at all and shows flyctl's own error if it does not.
 
 **To run locally** for development/testing, on macOS with apple/container,
 

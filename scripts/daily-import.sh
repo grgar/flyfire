@@ -38,6 +38,7 @@ UA="Mozilla/5.0 (X11; Linux x86_64) flyfire-import"
 # we do not depend on flyctl propagating the remote exit status.
 read -r -d '' REMOTE <<'EOF'
 set -u
+echo "REMOTE_STARTED"
 cfg=$1
 token=$2
 d=$(mktemp -d /tmp/importer.XXXXXX) || exit 1
@@ -86,8 +87,36 @@ keepalive() {
   done
 }
 
+# Print flyctl's own output (never importer output) from a failed ssh attempt.
+# Over-long lines are dropped, which also drops any echoed command line that
+# carries the config or token, and the output is capped.
+show_flyctl_error() {
+  awk 'length > 300 { print "[long line omitted]"; next } { print }' "$1" | head -n 15 | sed 's/^/  flyctl: /'
+}
+
+# Check that ssh works at all before importing anything, so a transport problem
+# is one clear message instead of the same failure once per feed. The command
+# carries no secrets and prints nothing sensitive, so flyctl's output is safe.
+ssh_preflight() {
+  local out attempt rc
+  out=$(mktemp)
+  for attempt in 1 2 3; do
+    timeout 120 flyctl ssh console -a "$FLY_APP" -C "echo ssh-ok" >"$out" 2>&1
+    rc=$?
+    if [ "$rc" -eq 0 ] && grep -q '^ssh-ok' "$out"; then
+      rm -f "$out"
+      return 0
+    fi
+    echo "ssh preflight attempt $attempt failed (flyctl exit $rc)"
+    show_flyctl_error "$out"
+    [ "$attempt" -lt 3 ] && sleep "${PREFLIGHT_WAIT:-15}"
+  done
+  rm -f "$out"
+  return 1
+}
+
 import_feed() {
-  local feed=$1 var="IMPORT_CONFIG_$1" log fly_rc rc
+  local feed=$1 var="IMPORT_CONFIG_$1" log fly_rc rc started
   if ! [[ $feed =~ ^[0-9]+$ ]]; then
     fail "feed '$feed' is not a number"
     return 1
@@ -102,17 +131,26 @@ import_feed() {
     -C "sh -c 'echo $REMOTE_B64 | base64 -d | sh -s -- $cfg $FIREFLY_PAT'" >"$log" 2>&1
   fly_rc=$?
   rc=$(sed -n 's/.*IMPORT_EXIT=\([0-9][0-9]*\).*/\1/p' "$log" | tail -n1)
-  [ "${DEBUG:-}" = 1 ] && cat "$log"
-  rm -f "$log"
+  # Raw importer output has transaction details, so it is only ever shown when
+  # run by hand. A DEBUG secret or variable in Actions is deliberately ignored.
+  if [ "${DEBUG:-}" = 1 ] && [ -z "${GITHUB_ACTIONS:-}" ]; then cat "$log"; fi
+  started=0
+  grep -q '^REMOTE_STARTED' "$log" && started=1
 
   case "$rc" in
     0)  echo "feed $feed: imported" ;;
     73) echo "feed $feed: nothing new to import" ;;
     74) fail "feed $feed: GoCardless consent has expired. Re-authorise the connection, then re-run." ;;
     64) fail "feed $feed: importer could not connect to Firefly (exit 64)" ;;
-    "") fail "feed $feed: no importer exit status (flyctl exit $fly_rc). The ssh step failed or timed out; re-run locally with DEBUG=1 to see why." ;;
+    "") if [ "$started" = 1 ]; then
+          fail "feed $feed: the importer started but never reported an exit status (flyctl exit $fly_rc). The connection dropped or it timed out; the import may still have completed, so check Firefly before re-running."
+        else
+          fail "feed $feed: ssh failed before the importer started (flyctl exit $fly_rc)"
+          show_flyctl_error "$log"
+        fi ;;
     *)  fail "feed $feed: importer exited with status $rc" ;;
   esac
+  rm -f "$log"
   [ "$rc" = 0 ] || [ "$rc" = 73 ]
 }
 
@@ -146,6 +184,12 @@ wake || { echo "::error::$HEALTH_URL did not return 200 within 3 minutes"; exit 
 keepalive &
 KEEPALIVE_PID=$!
 trap 'kill "$KEEPALIVE_PID" 2>/dev/null' EXIT
+
+if ! ssh_preflight; then
+  echo "::error::flyctl ssh to $FLY_APP failed 3 times, so no feed was attempted. The flyctl messages above say why. If they mention permissions or authorization, FLY_API_TOKEN may not be allowed to ssh: try one from \`fly tokens create ssh\`."
+  exit 1
+fi
+echo "ssh preflight ok"
 
 imported=()
 for feed in $FEEDS; do
