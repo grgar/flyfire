@@ -16,7 +16,7 @@
 # when running locally.
 #
 # Environment:
-#   IMPORT_CONFIG_<N>     base64 (single line) of an importer JSON config, N = 1-4.
+#   IMPORT_CONFIG_<N>     an importer JSON config, as the plain file or its base64, N = 1-4.
 #                         Feeds are only ever identified by number here, so the
 #                         public logs and repository do not say which banks are used.
 #   FIREFLY_PAT           Firefly personal access token
@@ -87,6 +87,19 @@ keepalive() {
   done
 }
 
+# Turn a config secret into single-line base64 of compact JSON, accepting either
+# plain JSON or base64 of it. Anything else is rejected here, before it is sent
+# over ssh: the config is passed on a remote command line, where plain
+# multi-line JSON gets split into words and run as shell commands.
+normalise_config() {
+  local raw=$1 json
+  if ! json=$(printf '%s' "$raw" | jq -c . 2>/dev/null); then
+    json=$(printf '%s' "$raw" | base64 -d 2>/dev/null | jq -c . 2>/dev/null) || return 1
+  fi
+  printf '%s' "$json" | jq -e 'type == "object" and has("default_account")' >/dev/null 2>&1 || return 1
+  printf '%s' "$json" | base64 -w0
+}
+
 # Print flyctl's own output (never importer output) from a failed ssh attempt.
 # Over-long lines are dropped, which also drops any echoed command line that
 # carries the config or token, and the output is capped.
@@ -121,9 +134,13 @@ import_feed() {
     fail "feed '$feed' is not a number"
     return 1
   fi
-  local cfg="${!var:-}"
-  if [ -z "$cfg" ]; then
+  if [ -z "${!var:-}" ]; then
     fail "feed $feed: secret $var is not set"
+    return 1
+  fi
+  local cfg
+  if ! cfg=$(normalise_config "${!var}"); then
+    fail "feed $feed: $var is not an importer config (expected the JSON file, or its base64)"
     return 1
   fi
   log=$(mktemp)
@@ -135,7 +152,7 @@ import_feed() {
   # run by hand. A DEBUG secret or variable in Actions is deliberately ignored.
   if [ "${DEBUG:-}" = 1 ] && [ -z "${GITHUB_ACTIONS:-}" ]; then cat "$log"; fi
   started=0
-  grep -q '^REMOTE_STARTED' "$log" && started=1
+  grep -q 'REMOTE_STARTED' "$log" && started=1
 
   case "$rc" in
     0)  echo "feed $feed: imported" ;;
@@ -158,7 +175,7 @@ import_feed() {
 # account IDs or bank names need to live in this public repository.
 check_fresh() {
   local feed=$1 var="IMPORT_CONFIG_$1" id latest ts age
-  id=$(printf '%s' "${!var}" | base64 -d | jq -r '.default_account // empty') || id=""
+  id=$(normalise_config "${!var}" | base64 -d | jq -r '.default_account // empty') || id=""
   [ -n "$id" ] || { echo "feed $feed: no default_account in config, skipping freshness check"; return 0; }
   latest=$(curl -fsS --max-time 60 -A "$UA" -H "Authorization: Bearer $FIREFLY_PAT" \
     -H 'Accept: application/json' "$FIREFLY_URL/api/v1/accounts/$id/transactions?limit=1" \

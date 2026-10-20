@@ -68,7 +68,7 @@ This repository contains GitHub Actions that deploy updates pushed to main, once
 
 | secret | value |
 |---|---|
-| `IMPORT_CONFIG_1` to `IMPORT_CONFIG_4` | each importer JSON config as one line of base64, e.g. `base64 -i config.json \| tr -d '
+| `IMPORT_CONFIG_1` to `IMPORT_CONFIG_4` | each importer JSON config, either the file as it is (`gh secret set IMPORT_CONFIG_1 < config.json`) or its base64 |
 ' \| gh secret set IMPORT_CONFIG_1` |
 | `FIREFLY_PAT` | a Firefly personal access token |
 
