@@ -9,18 +9,18 @@ Subject: [PATCH 2/2] Show notes for categories in list view
  2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/app/Repositories/Category/CategoryRepository.php b/app/Repositories/Category/CategoryRepository.php
-index 70f9ed0d23..fcb508e929 100644
+index 3f8e0fb6d3..3a0d0bc8bd 100644
 --- a/app/Repositories/Category/CategoryRepository.php
 +++ b/app/Repositories/Category/CategoryRepository.php
 @@ -188,7 +188,7 @@ public function getByIds(array $categoryIds): Collection
       */
-     public function getCategories(): Collection
+     public function getCategories(array $sort = [], array $filter = []): Collection
      {
--        return $this->user->categories()->with(['attachments'])->orderBy('name', 'ASC')->get();
-+        return $this->user->categories()->with(['attachments', 'notes'])->orderBy('name', 'ASC')->get();
-     }
+-        $query   = $this->user->categories()->with(['attachments']);
++        $query   = $this->user->categories()->with(['attachments', 'notes']);
  
-     public function getNoteText(Category $category): ?string
+         // add sort parameters
+         $allowed = config('firefly.allowed_db_sort_parameters.Category', []);
 diff --git a/resources/views/components/lists/categories.blade.php b/resources/views/components/lists/categories.blade.php
 index e3590d742f..54a1c0df51 100644
 --- a/resources/views/components/lists/categories.blade.php

@@ -40,7 +40,7 @@ index 0000000000..33e5dc70e4
 +    }
 +}
 diff --git a/bootstrap/app.php b/bootstrap/app.php
-index 9187403fc9..091734a2dd 100644
+index 64be6caca3..53df6c3745 100644
 --- a/bootstrap/app.php
 +++ b/bootstrap/app.php
 @@ -23,6 +23,7 @@
@@ -51,7 +51,7 @@ index 9187403fc9..091734a2dd 100644
  use FireflyIII\Http\Middleware\Authenticate;
  use FireflyIII\Http\Middleware\Binder;
  use FireflyIII\Http\Middleware\CatchBlockedUsers;
-@@ -79,6 +80,7 @@
+@@ -78,6 +79,7 @@
                        $middleware->use(
                            [
                                InvokeDeferredCallbacks::class,
@@ -60,7 +60,7 @@ index 9187403fc9..091734a2dd 100644
                                HandleCors::class,
                                PreventRequestsDuringMaintenance::class,
 diff --git a/config/firefly.php b/config/firefly.php
-index 0e3cefbe08..f81cde8484 100644
+index b3af48729f..d45e040059 100644
 --- a/config/firefly.php
 +++ b/config/firefly.php
 @@ -184,6 +184,7 @@
