@@ -10,11 +10,11 @@ RUN apk add --no-cache php85 php85-fpm php85-bcmath php85-curl php85-dom php85-f
 RUN ln -s /usr/bin/php85 /usr/bin/php && ln -s /usr/sbin/php-fpm85 /usr/sbin/php-fpm
 RUN sed -i -e "s/.*max_execution_time.*/max_execution_time = 600/" -e "s/.*memory_limit.*/memory_limit = -1/" "/etc/php85/php.ini" && \
 	sed -i -e "s~.*error_log.*~error_log = /proc/self/fd/2~" "/etc/php85/php-fpm.conf" && \
-	sed -i -e "s/.*clear_env.*/clear_env = no/" -e "s/nobody/www-data/" -e "s/pm.max_children.*/pm.max_children = 10/" -e "s/pm.max_spare_servers.*/pm.max_spare_servers = 10/" -e "s/.*catch_workers_output.*/catch_workers_output = yes/" -e "s/decorate_workers_output.*/decorate_workers_output = yes/" "/etc/php85/php-fpm.d/www.conf"
+	sed -i -e "s/.*clear_env.*/clear_env = no/" -e "s~^listen = .*~listen = /run/php-fpm.sock~" -e "s/nobody/www-data/" -e "s/pm.max_children.*/pm.max_children = 10/" -e "s/pm.max_spare_servers.*/pm.max_spare_servers = 10/" -e "s/.*catch_workers_output.*/catch_workers_output = yes/" -e "s/decorate_workers_output.*/decorate_workers_output = yes/" "/etc/php85/php-fpm.d/www.conf"
 COPY nginx/default.conf /etc/nginx/default.conf
 COPY nginx/access-log.conf /etc/nginx/http.d/access-log.conf
 COPY php/opcache.ini /etc/php85/conf.d/
-RUN printf "[www]\nuser = www-data\ngroup = www-data\n" > /etc/php85/php-fpm.d/user.conf && \
+RUN printf "[www]\nuser = www-data\ngroup = www-data\nlisten.owner = www-data\nlisten.group = www-data\n" > /etc/php85/php-fpm.d/user.conf && \
 	sed -i -e "s~user nginx;~user www-data;~" /etc/nginx/nginx.conf && \
 	groupmod --gid 33 www-data && \
 	adduser -u 33 -D -S -G www-data www-data
