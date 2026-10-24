@@ -8,7 +8,9 @@
 # 3. For each feed, run `php artisan importer:import` on the machine over
 #    `fly ssh console`. Unlike the HTTP autoupload endpoint this has no request
 #    timeout and reports a real exit code. Feeds run one at a time.
-# 4. Check each feed's newest transaction is recent, to catch silently stale feeds.
+# 4. Note each feed's newest transaction age. A quiet account is normal, so this
+#    only ever warns (never fails); a lapsed GoCardless consent is caught by the
+#    importer's own exit status (74) in step 3.
 #
 # This repository is public, so the importer's output (debug logs with
 # transaction details) is captured and never printed. Only exit codes and
@@ -29,7 +31,7 @@ set -uo pipefail
 FLY_APP="${FLY_APP:-whe}"
 HEALTH_URL="${HEALTH_URL:-https://whe.grg.app/health}"
 FIREFLY_URL="${FIREFLY_URL:-https://whe.grg.app}"
-MAX_AGE_DAYS="${MAX_AGE_DAYS:-7}"
+MAX_AGE_DAYS="${MAX_AGE_DAYS:-30}"
 FEEDS="${FEEDS:-1 2 3 4}"
 UA="Mozilla/5.0 (X11; Linux x86_64) flyfire-import"
 
@@ -181,13 +183,13 @@ check_fresh() {
     -H 'Accept: application/json' "$FIREFLY_URL/api/v1/accounts/$id/transactions?limit=1" \
     | jq -r '.data[0].attributes.transactions[0].date // empty') || latest=""
   if [ -z "$latest" ]; then
-    fail "feed $feed: could not read the newest transaction from Firefly"
+    echo "::warning::feed $feed: could not read the newest transaction from Firefly"
     return
   fi
-  ts=$(date -d "$latest" +%s) || { fail "feed $feed: unreadable transaction date"; return; }
+  ts=$(date -d "$latest" +%s) || { echo "::warning::feed $feed: unreadable transaction date"; return; }
   age=$(( ($(date +%s) - ts) / 86400 ))
   if [ "$age" -gt "$MAX_AGE_DAYS" ]; then
-    fail "feed $feed: newest transaction is $age days old (limit $MAX_AGE_DAYS). The feed may be stale."
+    echo "::warning::feed $feed: newest transaction is $age days old. Fine if the account is unused; otherwise check the connection."
   else
     echo "feed $feed: newest transaction is $age day(s) old"
   fi
