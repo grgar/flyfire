@@ -9,8 +9,8 @@
 #    `fly ssh console`. Unlike the HTTP autoupload endpoint this has no request
 #    timeout and reports a real exit code. Feeds run one at a time.
 # 4. Note each feed's newest transaction age. A quiet account is normal, so this
-#    only ever warns (never fails); a lapsed GoCardless consent is caught by the
-#    importer's own exit status (74) in step 3.
+#    only ever warns (never fails); a lapsed GoCardless consent makes the importer
+#    fail in step 3 (see the exit status handling in import_feed).
 #
 # This repository is public, so the importer's output (debug logs with
 # transaction details) is captured and never printed. Only exit codes and
@@ -159,7 +159,11 @@ import_feed() {
   case "$rc" in
     0)  echo "feed $feed: imported" ;;
     73) echo "feed $feed: nothing new to import" ;;
+    # 74 is the documented "agreement expired" status, but `importer:import`
+    # overwrites it with 1 whenever there were errors (Import.php in v2.3.5), so
+    # an expired consent normally arrives as 1. Both are handled.
     74) fail "feed $feed: GoCardless consent has expired. Re-authorise the connection, then re-run." ;;
+    1)  fail "feed $feed: importer failed (exit 1). An expired GoCardless consent also ends up here, so if this connection is nearly 90 days old, renew it." ;;
     64) fail "feed $feed: importer could not connect to Firefly (exit 64)" ;;
     "") if [ "$started" = 1 ]; then
           fail "feed $feed: the importer started but never reported an exit status (flyctl exit $fly_rc). The connection dropped or it timed out; the import may still have completed, so check Firefly before re-running."
