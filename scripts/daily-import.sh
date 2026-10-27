@@ -7,7 +7,9 @@
 #    from being suspended mid-import.
 # 3. For each feed, run `php artisan importer:import` on the machine over
 #    `fly ssh console`. Unlike the HTTP autoupload endpoint this has no request
-#    timeout and reports a real exit code. Feeds run one at a time.
+#    timeout and reports a real exit code. Feeds run one at a time. Exit 0 does
+#    not mean anything was downloaded, so the importer's report is read as well
+#    (see import_feed).
 # 4. Note each feed's newest transaction age. A quiet account is normal, so this
 #    only ever warns (never fails); a lapsed GoCardless consent makes the importer
 #    fail in step 3 (see the exit status handling in import_feed).
@@ -131,7 +133,7 @@ ssh_preflight() {
 }
 
 import_feed() {
-  local feed=$1 var="IMPORT_CONFIG_$1" log fly_rc rc started
+  local feed=$1 var="IMPORT_CONFIG_$1" log fly_rc rc started welcomed created ratelimited dlfailed
   if ! [[ $feed =~ ^[0-9]+$ ]]; then
     fail "feed '$feed' is not a number"
     return 1
@@ -156,8 +158,39 @@ import_feed() {
   started=0
   grep -q 'REMOTE_STARTED' "$log" && started=1
 
+  # Exit 0 does not mean anything was imported (v2.3.5). The importer's settings
+  # check (app/Console/Kernel.php) stops it with a bare `exit`, so status 0,
+  # before any command runs. Past that, 0 means a message or a warning and no
+  # errors, and a GoCardless transactions download that was rate limited or
+  # failed is only a warning (TransactionProcessor::download). So read the
+  # outcome from the importer's report lines too; only counts and canned
+  # messages are printed, never the lines themselves. The welcome line is
+  # printed once the importer has connected to Firefly and is about to import.
+  welcomed=0
+  grep -q 'Welcome to the Firefly III data importer' "$log" && welcomed=1
+  created=$(grep -c 'Import index [0-9]*: Created ' "$log")
+  # "limit reached:" is the refused download. "You have no requests left" is
+  # also added after a download that succeeded on the last request of the day,
+  # so it is not a failure on its own.
+  ratelimited=0
+  grep -Eq 'Conversion index \(warn\) [0-9]+: .*limit reached: ' "$log" && ratelimited=1
+  # Any other conversion warning, except a skipped zero-amount transaction, is a
+  # download that failed (no response, or one that was not JSON).
+  dlfailed=0
+  grep 'Conversion index (warn) ' "$log" | grep -Ev 'limit reached: |You have no requests left|has an amount of zero' | grep -q . && dlfailed=1
+
   case "$rc" in
-    0)  echo "feed $feed: imported" ;;
+    0)  if [ "$welcomed" = 0 ]; then
+          fail "feed $feed: the importer exited 0 without starting an import, so its configuration on the machine stopped it. Run this by hand with DEBUG=1 to see its message."
+        elif [ "$ratelimited" = 1 ]; then
+          fail "feed $feed: GoCardless rate limit reached, so at least one account was not downloaded ($created transaction(s) imported). The limit resets within a day; opening the bank in the importer UI uses the same allowance."
+        elif [ "$dlfailed" = 1 ]; then
+          fail "feed $feed: downloading transactions from GoCardless failed for at least one account ($created transaction(s) imported)"
+        elif [ "$created" -gt 0 ]; then
+          echo "feed $feed: imported $created transaction(s)"
+        else
+          echo "feed $feed: nothing new to import"
+        fi ;;
     73) echo "feed $feed: nothing new to import" ;;
     # 74 is the documented "agreement expired" status, but `importer:import`
     # overwrites it with 1 whenever there were errors (Import.php in v2.3.5), so
