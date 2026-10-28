@@ -219,7 +219,7 @@ import_feed() {
 # The feed's main account is the importer config's own default_account, so no
 # account IDs or bank names need to live in this public repository.
 check_fresh() {
-  local feed=$1 var="IMPORT_CONFIG_$1" id latest ts age
+  local feed=$1 var="IMPORT_CONFIG_$1" id latest age
   id=$(normalise_config "${!var}" | base64 -d | jq -r '.default_account // empty') || id=""
   [ -n "$id" ] || { echo "feed $feed: no default_account in config, skipping freshness check"; return 0; }
   latest=$(curl -fsS --max-time 60 -A "$UA" -H "Authorization: Bearer $FIREFLY_PAT" \
@@ -229,8 +229,10 @@ check_fresh() {
     echo "::warning::feed $feed: could not read the newest transaction from Firefly"
     return
   fi
-  ts=$(date -d "$latest" +%s) || { echo "::warning::feed $feed: unreadable transaction date"; return; }
-  age=$(( ($(date +%s) - ts) / 86400 ))
+  # jq rather than `date -d`, which macOS does not have. fromdateiso8601 does not
+  # take a UTC offset ("+01:00"), so use the transaction's calendar date alone.
+  age=$(printf '%s' "$latest" | jq -Rr '(now - (.[0:10] + "T00:00:00Z" | fromdateiso8601)) / 86400 | floor' 2>/dev/null)
+  [[ $age =~ ^-?[0-9]+$ ]] || { echo "::warning::feed $feed: unreadable transaction date"; return; }
   if [ "$age" -gt "$MAX_AGE_DAYS" ]; then
     echo "::warning::feed $feed: newest transaction is $age days old. Fine if the account is unused; otherwise check the connection."
   else
@@ -258,7 +260,8 @@ for feed in $FEEDS; do
   import_feed "$feed" && imported+=("$feed")
 done
 
-for feed in "${imported[@]}"; do
+# bash 3.2 (macOS's) treats an empty "${imported[@]}" as unbound under set -u.
+for feed in ${imported[@]+"${imported[@]}"}; do
   check_fresh "$feed"
 done
 
