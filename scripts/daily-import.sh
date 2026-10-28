@@ -91,6 +91,12 @@ keepalive() {
   done
 }
 
+# Every flyctl call reads from /dev/null. With a terminal on stdin, as when run by
+# hand, `flyctl ssh console` puts it in raw mode, but `timeout` runs it in a
+# background process group, so the kernel stops it as soon as it touches the
+# terminal and the run hangs; on SIGTERM it touches the terminal again and stops
+# again, which is why there is also a kill-after.
+
 # Turn a config secret into single-line base64 of compact JSON, accepting either
 # plain JSON or base64 of it. Anything else is rejected here, before it is sent
 # over ssh: the config is passed on a remote command line, where plain
@@ -118,7 +124,7 @@ ssh_preflight() {
   local out attempt rc
   out=$(mktemp)
   for attempt in 1 2 3; do
-    timeout 120 flyctl ssh console -a "$FLY_APP" -C "echo ssh-ok" >"$out" 2>&1
+    timeout -k 10 120 flyctl ssh console -a "$FLY_APP" -C "echo ssh-ok" </dev/null >"$out" 2>&1
     rc=$?
     if [ "$rc" -eq 0 ] && grep -q '^ssh-ok' "$out"; then
       rm -f "$out"
@@ -148,8 +154,8 @@ import_feed() {
     return 1
   fi
   log=$(mktemp)
-  timeout 50m flyctl ssh console -a "$FLY_APP" \
-    -C "sh -c 'echo $REMOTE_B64 | base64 -d | sh -s -- $cfg $FIREFLY_PAT'" >"$log" 2>&1
+  timeout -k 10 50m flyctl ssh console -a "$FLY_APP" \
+    -C "sh -c 'echo $REMOTE_B64 | base64 -d | sh -s -- $cfg $FIREFLY_PAT'" </dev/null >"$log" 2>&1
   fly_rc=$?
   rc=$(sed -n 's/.*IMPORT_EXIT=\([0-9][0-9]*\).*/\1/p' "$log" | tail -n1)
   # Raw importer output has transaction details, so it is only ever shown when
