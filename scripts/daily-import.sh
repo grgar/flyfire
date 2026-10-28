@@ -62,6 +62,10 @@ for v in NORDIGEN_ID NORDIGEN_KEY; do
 done
 export FIREFLY_III_URL="${FIREFLY_FLYCAST_URL:-http://localhost:8080}"
 export FIREFLY_III_ACCESS_TOKEN="$token"
+# FIREFLY_III_CLIENT_ID is a Fly secret for the importer UI's OAuth login. With
+# both it and an access token set, the importer refuses to run any command and
+# exits 0 having done nothing. Empty rather than unset, so nothing can refill it.
+export FIREFLY_III_CLIENT_ID=
 export IMPORT_DIR_ALLOWLIST="$d"
 export D="$d"
 cd /var/www/importer
