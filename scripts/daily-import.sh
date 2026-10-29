@@ -66,6 +66,9 @@ export FIREFLY_III_ACCESS_TOKEN="$token"
 # both it and an access token set, the importer refuses to run any command and
 # exits 0 having done nothing. Empty rather than unset, so nothing can refill it.
 export FIREFLY_III_CLIENT_ID=
+# Every run downloads days that are already imported, and by default each of
+# those transactions is a duplicate error, which fails the run with exit 1.
+export IGNORE_DUPLICATE_ERRORS=true
 export IMPORT_DIR_ALLOWLIST="$d"
 export D="$d"
 cd /var/www/importer
