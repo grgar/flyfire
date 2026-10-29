@@ -10,7 +10,14 @@
 #    timeout and reports a real exit code. Feeds run one at a time. Exit 0 does
 #    not mean anything was downloaded, so the importer's report is read as well
 #    (see import_feed).
-# 4. Note each feed's newest transaction age. A quiet account is normal, so this
+#    The importer runs with its own rules turned off; see step 4.
+# 4. Apply Firefly's "when a transaction is created" rules to what was imported,
+#    over `fly ssh` with scripts/apply-rules.php. The importer would otherwise
+#    have Firefly run them all inside its final "finish batch" HTTP request,
+#    which nginx cuts off after 600 seconds on this machine, after which the
+#    run ends and Fly stops the machine with the rules half done. The same step
+#    also runs before importing, to finish anything an earlier run left.
+# 5. Note each feed's newest transaction age. A quiet account is normal, so this
 #    only ever warns (never fails); a lapsed GoCardless consent makes the importer
 #    fail in step 3 (see the exit status handling in import_feed).
 #
@@ -26,6 +33,8 @@
 #   FIREFLY_PAT           Firefly personal access token
 #   FLY_API_TOKEN         flyctl auth (deploy token, or `fly tokens create ssh`)
 #   FEEDS                 space-separated feed numbers, default: 1 2 3 4
+#   RULE_GROUPS           space-separated Firefly transaction group IDs to apply
+#                         rules to as well, to retry after a failed rules step
 #   FLY_APP, HEALTH_URL, FIREFLY_URL, MAX_AGE_DAYS   overridable defaults below
 
 set -uo pipefail
@@ -77,6 +86,31 @@ su -m -s /bin/sh www-data -c 'exec php artisan importer:import "$D/config.json"'
 echo "IMPORT_EXIT=$?"
 EOF
 REMOTE_B64=$(printf '%s' "$REMOTE" | base64 -w0)
+
+# Runs on the Fly machine (busybox sh, as root). Receives scripts/apply-rules.php
+# as base64, then the transaction group IDs; prints RULES_EXIT=<code> last.
+read -r -d '' REMOTE_RULES <<'EOF'
+set -u
+echo "REMOTE_STARTED"
+php=$1
+shift
+d=$(mktemp -d /tmp/rules.XXXXXX) || exit 1
+trap 'rm -rf "$d"' EXIT
+printf '%s' "$php" | base64 -d >"$d/apply-rules.php"
+chown -R www-data "$d"
+# su -m keeps root's HOME, where www-data cannot look, and Postgres's client
+# library fails the connection when it cannot read ~/.postgresql/ there.
+export RULES_PHP="$d/apply-rules.php" RULES_GROUPS="$*" HOME="$d"
+cd /var/www/html
+# As www-data, like php-fpm, so Firefly's storage stays writable by it.
+su -m -s /bin/sh www-data -c 'exec php "$RULES_PHP" $RULES_GROUPS' </dev/null
+echo "RULES_EXIT=$?"
+EOF
+REMOTE_RULES_B64=$(printf '%s' "$REMOTE_RULES" | base64 -w0)
+RULES_PHP_B64=$(base64 -w0 <"$(dirname "$0")/apply-rules.php") || { echo "::error::cannot read scripts/apply-rules.php"; exit 1; }
+
+# Transaction groups the imports created, for feeds whose config has rules on.
+rule_groups=""
 
 failures=0
 fail() { echo "::error::$*"; failures=$((failures + 1)); }
@@ -146,7 +180,7 @@ ssh_preflight() {
 }
 
 import_feed() {
-  local feed=$1 var="IMPORT_CONFIG_$1" log fly_rc rc started welcomed created ratelimited dlfailed
+  local feed=$1 var="IMPORT_CONFIG_$1" log fly_rc rc started welcomed created ratelimited dlfailed rules ids
   if ! [[ $feed =~ ^[0-9]+$ ]]; then
     fail "feed '$feed' is not a number"
     return 1
@@ -160,6 +194,10 @@ import_feed() {
     fail "feed $feed: $var is not an importer config (expected the JSON file, or its base64)"
     return 1
   fi
+  # The rules are applied afterwards by apply_rules, so the importer must not
+  # ask Firefly to run them itself. The importer's default for "rules" is on.
+  rules=$(printf '%s' "$cfg" | base64 -d | jq -r 'if .rules == false then "off" else "on" end')
+  cfg=$(printf '%s' "$cfg" | base64 -d | jq -c '.rules = false' | base64 -w0)
   log=$(mktemp)
   timeout -k 10 50m flyctl ssh console -a "$FLY_APP" \
     -C "sh -c 'echo $REMOTE_B64 | base64 -d | sh -s -- $cfg $FIREFLY_PAT'" </dev/null >"$log" 2>&1
@@ -191,6 +229,15 @@ import_feed() {
   # download that failed (no response, or one that was not JSON).
   dlfailed=0
   grep 'Conversion index (warn) ' "$log" | grep -Ev 'limit reached: |You have no requests left|has an amount of zero' | grep -q . && dlfailed=1
+  # Each created transaction is reported as 'Created <type> <a href="...">#<group
+  # ID> ...', on the console and again in the importer's log.
+  ids=$(grep -oE 'Created [a-z ]+ (<a [^>]*>)?#[0-9]+' "$log" | grep -oE '[0-9]+$' | sort -un | tr '\n' ' ')
+  if [ "$rules" = on ]; then
+    rule_groups="$rule_groups $ids"
+    if [ "$created" -gt 0 ] && [ -z "${ids// /}" ]; then
+      fail "feed $feed: could not read the IDs of the $created imported transaction(s), so their rules will not be applied"
+    fi
+  fi
 
   case "$rc" in
     0)  if [ "$welcomed" = 0 ]; then
@@ -221,6 +268,42 @@ import_feed() {
   esac
   rm -f "$log"
   [ "$rc" = 0 ] || [ "$rc" = 73 ]
+}
+
+# Apply the rules on the machine (see scripts/apply-rules.php) to the given
+# transaction groups and to anything Firefly left uncompleted. Prints only
+# counts; Firefly's output, which has transaction details, stays in the log.
+apply_rules() {
+  local what=$1 log fly_rc rc count started=0
+  shift
+  log=$(mktemp)
+  timeout -k 10 60m flyctl ssh console -a "$FLY_APP" \
+    -C "sh -c 'echo $REMOTE_RULES_B64 | base64 -d | sh -s -- $RULES_PHP_B64 $*'" </dev/null >"$log" 2>&1
+  fly_rc=$?
+  rc=$(sed -n 's/.*RULES_EXIT=\([0-9][0-9]*\).*/\1/p' "$log" | tail -n1)
+  count=$(sed -n 's/.*RULES_JOURNALS=\([0-9][0-9]*\).*/\1/p' "$log" | tail -n1)
+  if [ "${DEBUG:-}" = 1 ] && [ -z "${GITHUB_ACTIONS:-}" ]; then cat "$log"; fi
+  grep -q 'REMOTE_STARTED' "$log" && started=1
+  rm -f "$log"
+
+  if [ "$rc" = 0 ] && [ -n "$count" ]; then
+    if [ "$what" = new ]; then
+      echo "rules: applied to $count transaction(s)"
+    elif [ "$count" -gt 0 ]; then
+      echo "rules: applied to $count transaction(s) an earlier run left unprocessed"
+    fi
+    return 0
+  fi
+  if [ "$what" = new ]; then
+    if [ "$started" = 1 ]; then
+      fail "rules: did not finish (exit ${rc:-none}, flyctl exit $fly_rc). Transactions not yet done stay marked unprocessed and are picked up at the start of the next run; if it failed straight away, re-run with RULE_GROUPS=\"$*\" to apply them."
+    else
+      fail "rules: ssh failed before the rules were applied (flyctl exit $fly_rc). Re-run with RULE_GROUPS=\"$*\" to apply them."
+    fi
+  else
+    fail "rules: could not finish transactions an earlier run left unprocessed (exit ${rc:-none}, flyctl exit $fly_rc)"
+  fi
+  return 1
 }
 
 # The feed's main account is the importer config's own default_account, so no
@@ -262,10 +345,22 @@ if ! ssh_preflight; then
 fi
 echo "ssh preflight ok"
 
+# Importing marks every unprocessed transaction as done, rules or not, so
+# anything an earlier run left has to have its rules applied first.
+if ! apply_rules leftover; then
+  echo "::error::no feed was attempted: importing now would mark those transactions done without their rules."
+  exit 1
+fi
+
 imported=()
 for feed in $FEEDS; do
   import_feed "$feed" && imported+=("$feed")
 done
+
+rule_groups="$rule_groups ${RULE_GROUPS:-}"
+# Unquoted on purpose: one argument per group ID.
+# shellcheck disable=SC2086
+[ -n "${rule_groups// /}" ] && apply_rules new $rule_groups
 
 # bash 3.2 (macOS's) treats an empty "${imported[@]}" as unbound under set -u.
 for feed in ${imported[@]+"${imported[@]}"}; do
