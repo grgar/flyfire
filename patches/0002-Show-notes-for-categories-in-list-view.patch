@@ -1,46 +1,35 @@
-From 3a7cc07517b154f5d4bb50a6edbb48c2a78ddc4c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: George Garside <apps@georgegarside.com>
 Date: Sat, 22 Nov 2025 17:48:22 +0000
-Subject: [PATCH 2/2] Show notes for categories in list view
+Subject: [PATCH] Show notes for categories in list view
 
+The index is now an Alpine page fed by the API, so add the notes from the view.
 ---
- app/Repositories/Category/CategoryRepository.php      | 2 +-
- resources/views/components/lists/categories.blade.php | 5 ++++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/app/Repositories/Category/CategoryRepository.php b/app/Repositories/Category/CategoryRepository.php
-index 3f8e0fb6d3..3a0d0bc8bd 100644
---- a/app/Repositories/Category/CategoryRepository.php
-+++ b/app/Repositories/Category/CategoryRepository.php
-@@ -188,7 +188,7 @@ public function getByIds(array $categoryIds): Collection
-      */
-     public function getCategories(array $sort = [], array $filter = []): Collection
-     {
--        $query   = $this->user->categories()->with(['attachments']);
-+        $query   = $this->user->categories()->with(['attachments', 'notes']);
+diff --git a/resources/views/categories/index.blade.php b/resources/views/categories/index.blade.php
+index 57d75c8..1980637 100644
+--- a/resources/views/categories/index.blade.php
++++ b/resources/views/categories/index.blade.php
+@@ -104,4 +104,23 @@
  
-         // add sort parameters
-         $allowed = config('firefly.allowed_db_sort_parameters.Category', []);
-diff --git a/resources/views/components/lists/categories.blade.php b/resources/views/components/lists/categories.blade.php
-index e3590d742f..54a1c0df51 100644
---- a/resources/views/components/lists/categories.blade.php
-+++ b/resources/views/components/lists/categories.blade.php
-@@ -17,11 +17,14 @@
-     </tr>
-     @foreach($categories as $category)
-     <tr>
--        <td data-value="{{ $category->name }}">
-+        <td class="markdown" data-value="{{ $category->name }}">
-             <a href="{{ route('categories.show', [$category->id]) }}" title="{{ $category->name }}">{{ $category->name }}</a>
-             @if($category->attachments->count() > 0)
-                 <span class="bi bi-paperclip"></span>
-             @endif
-+            @if($category->notes->count() > 0)
-+                <small><br/>{!! parse_markdown($category->notes->first()->text) !!}</small>
-+            @endif
-         </td>
-         @if(null !== $category->lastActivity)
-         <td data-value="{{ $category->lastActivity->format('Y-m-d H-i-s') }}">
--- 
-2.55.0
-
+ @section('scripts')
+     @vite(['js/pages/categories/index.js'])
++    <script nonce="{{ $JS_NONCE }}">
++        // The rows are rendered client-side from the API, so add each category's notes once they appear.
++        const categoryNotes = @json(auth()->user()->categories()->with('notes')->get()->filter(fn ($c) => $c->notes->count() > 0)->mapWithKeys(fn ($c) => [$c->id => parse_markdown($c->notes->first()->text)]));
++        const addCategoryNotes = () => {
++            document.querySelectorAll('#category-index a[href*="/categories/show/"]').forEach((link) => {
++                const cell = link.closest('td');
++                const html = categoryNotes[link.getAttribute('href').split('/').pop()];
++                if (!html || !cell || cell.querySelector('.category-notes')) {
++                    return;
++                }
++                const notes = document.createElement('small');
++                notes.className = 'category-notes markdown d-block';
++                notes.innerHTML = html;
++                cell.appendChild(notes);
++            });
++        };
++        new MutationObserver(addCategoryNotes).observe(document.body, {childList: true, subtree: true});
++        addCategoryNotes();
++    </script>
+ @endsection
