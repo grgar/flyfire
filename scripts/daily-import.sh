@@ -163,6 +163,32 @@ config_json() {
   jq -e 'type == "object" and has("default_account")' <<<"$json" >/dev/null && printf '%s' "$json"
 }
 
+# check_config_age FEED CONFIG: log how long the config's GoCardless consent has
+# left: its top-level created_at plus nordigen_max_days (a string in the config).
+# date_range_number (a number) sets how many days before expiry to warn. An
+# expired one is a failure naming the feed, but the import is still attempted.
+# fromdateiso8601 takes no UTC offset, so only the first 19 characters are read;
+# an offset moves the result by hours at most.
+check_config_age() {
+  local feed=$1 left valid warn
+  valid=$(jq -r '.nordigen_max_days | tonumber' <<<"$2" 2>/dev/null)
+  warn=$(jq -r '(.date_range_number // 0) | tonumber' <<<"$2" 2>/dev/null)
+  [[ $valid =~ ^[0-9]+$ ]] || { echo "::warning::feed $feed: IMPORT_CONFIG_$feed has no readable nordigen_max_days, so its expiry is unknown"; return; }
+  [[ $warn =~ ^[0-9]+$ ]] || warn=0
+  left=$(jq -r --argjson valid "$valid" \
+    '(.created_at | .[0:19] + "Z" | fromdateiso8601) + $valid * 86400 - now | if . < 0 then -1 else floor / 86400 | floor end' \
+    <<<"$2" 2>/dev/null)
+  if ! [[ $left =~ ^-?[0-9]+$ ]]; then
+    echo "::warning::feed $feed: IMPORT_CONFIG_$feed has no readable created_at, so its expiry is unknown"
+  elif [ "$left" -lt 0 ]; then
+    fail "feed $feed: IMPORT_CONFIG_$feed has expired (older than $valid days). Re-authorise the connection and update the secret."
+  elif [ "$left" -le "$warn" ]; then
+    echo "::warning::feed $feed: IMPORT_CONFIG_$feed expires in $left day(s)"
+  else
+    echo "feed $feed: IMPORT_CONFIG_$feed expires in $left day(s)"
+  fi
+}
+
 # Exit 0 does not mean anything was imported (importer v2.3.5): its settings
 # check stops it with a bare `exit` before any command runs, and once running, 0
 # means a message or a warning and no errors, while a GoCardless download that
@@ -173,6 +199,7 @@ import_feed() {
   [[ $feed =~ ^[0-9]+$ ]] || { fail "feed '$feed' is not a number"; return; }
   [ -n "${!var:-}" ] || { fail "feed $feed: secret $var is not set"; return; }
   cfg=$(config_json "${!var}") || { fail "feed $feed: $var is not an importer config (expected the JSON file, or its base64)"; return; }
+  check_config_age "$feed" "$cfg"
   log=$(mktemp)
   remote "$log" 50m "$IMPORT_B64" config.json "$(jq -c '.rules = false' <<<"$cfg" | base64 -w0)" "$FIREFLY_PAT"
   created=$(grep -c 'Import index [0-9]*: Created ' "$log")
