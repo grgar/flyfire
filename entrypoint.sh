@@ -64,6 +64,7 @@ storage_dirs="
   storage/database
   storage/debugbar
   storage/export
+  storage/framework
   storage/framework/cache/data
   storage/framework/sessions
   storage/framework/testing
@@ -76,6 +77,7 @@ storage_dirs="
   storage/importer/configurations
   storage/importer/conversion-routines
   storage/importer/debugbar
+  storage/importer/framework
   storage/importer/framework/cache/data
   storage/importer/framework/sessions
   storage/importer/framework/views
