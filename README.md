@@ -70,7 +70,9 @@ This repository contains GitHub Actions that deploy updates pushed to main, once
 |---|---|
 | `IMPORT_CONFIG_1` to `IMPORT_CONFIG_4` | each importer JSON config, either the file as it is (`gh secret set IMPORT_CONFIG_1 < config.json`) or its base64 |
 ' \| gh secret set IMPORT_CONFIG_1` |
+| `FIREFLY_URL` | the base URL of your Firefly instance, e.g. `https://firefly.example.com`. A secret rather than a variable so the public logs mask it |
 | `FIREFLY_PAT` | a Firefly personal access token |
+| `STATIC_CRON_TOKEN` | optional: the value of Firefly's `STATIC_CRON_TOKEN` (32+ characters). When set, the run ends by calling `/api/v1/cron/<token>`, which runs Firefly's recurring transactions, auto-budgets, bill warnings and exchange rate updates. Without it the cron is skipped with a warning |
 
 GoCardless consents lapse every 90 days; when one does the run fails with an error naming the feed's number. The run also fails when GoCardless refuses a download, such as when an account's daily rate limit has been used up, which the importer itself only treats as a warning. The import uses `FLY_SSH_TOKEN` if set, otherwise `FLY_API_TOKEN`. If `fly ssh` is refused for the deploy token, create an ssh token with `fly tokens create ssh` and store it as `FLY_SSH_TOKEN`; keep `FLY_API_TOKEN` as it is, because an ssh token cannot deploy. Run it by hand from the Actions tab (optionally with a space-separated list of feed numbers), or locally with `DEBUG=1 scripts/daily-import.sh` to see the importer's output (`DEBUG` is ignored in Actions, because the log is public). Before importing, the run checks that `fly ssh` works at all and shows flyctl's own error if it does not.
 

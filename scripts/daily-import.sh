@@ -23,17 +23,23 @@
 #   IMPORT_CONFIG_<N>  an importer JSON config, plain or base64, N = 1-4. Feeds
 #                      are only identified by number, so the logs name no banks.
 #   FIREFLY_PAT        Firefly personal access token
+#   STATIC_CRON_TOKEN  the same value as on the Firefly app, which authenticates its
+#                      cron endpoint. Optional: without it the cron (recurring
+#                      transactions, auto-budgets, bill warnings, exchange rates)
+#                      is skipped with a warning
 #   FLY_API_TOKEN      flyctl auth (deploy token, or `fly tokens create ssh`)
 #   FEEDS              space-separated feed numbers, default: 1 2 3 4
 #   RULE_GROUPS        transaction group IDs to apply rules to as well, to retry
 #                      a rules step that failed before it started
-#   FLY_APP, HEALTH_URL, FIREFLY_URL, MAX_AGE_DAYS   overridable defaults below
+#   FIREFLY_URL        the Firefly base URL, e.g. https://firefly.example.com (required)
+#   FLY_APP, HEALTH_URL, MAX_AGE_DAYS   overridable defaults below (HEALTH_URL
+#                      defaults to $FIREFLY_URL/health)
 
 set -uo pipefail
 
 FLY_APP="${FLY_APP:-whe}"
-HEALTH_URL="${HEALTH_URL:-https://whe.grg.app/health}"
-FIREFLY_URL="${FIREFLY_URL:-https://whe.grg.app}"
+FIREFLY_URL="${FIREFLY_URL%/}"
+HEALTH_URL="${HEALTH_URL:-$FIREFLY_URL/health}"
 MAX_AGE_DAYS="${MAX_AGE_DAYS:-30}"
 FEEDS="${FEEDS:-1 2 3 4}"
 UA="Mozilla/5.0 (X11; Linux x86_64) flyfire-import"
@@ -245,11 +251,29 @@ check_fresh() {
   fi
 }
 
+# Firefly's cron job: recurring transactions, auto-budgets, bill warnings and so
+# on. It is its own endpoint, authenticated by STATIC_CRON_TOKEN in the URL, so
+# the URL and any response are never printed. nginx cuts requests off at 600s.
+run_cron() {
+  local code
+  if [ -z "${STATIC_CRON_TOKEN:-}" ]; then
+    echo "::warning::cron: not run, because STATIC_CRON_TOKEN is not set"
+    return
+  fi
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 590 -A "$UA" "$FIREFLY_URL/api/v1/cron/$STATIC_CRON_TOKEN")
+  if [ "$code" = 200 ]; then
+    echo "cron: ran"
+  else
+    fail "cron: Firefly returned HTTP $code (000 means no response)"
+  fi
+}
+
+[ -n "${FIREFLY_URL:-}" ] || { echo "::error::FIREFLY_URL is not set"; exit 1; }
 [ -n "${FIREFLY_PAT:-}" ] || { echo "::error::FIREFLY_PAT is not set"; exit 1; }
 RULES_PHP_B64=$(base64 -w0 <"$(dirname "$0")/apply-rules.php") || { echo "::error::cannot read scripts/apply-rules.php"; exit 1; }
 
 echo "Waking $FLY_APP"
-wake || { echo "::error::$HEALTH_URL did not return 200 within 3 minutes"; exit 1; }
+wake || { echo "::error::the health check did not return 200 within 3 minutes"; exit 1; }
 keepalive &
 KEEPALIVE_PID=$!
 trap 'kill "$KEEPALIVE_PID" 2>/dev/null' EXIT
@@ -279,5 +303,7 @@ done
 for pair in $fresh; do
   check_fresh "${pair%%:*}" "${pair#*:}"
 done
+
+run_cron
 
 [ "$failures" -eq 0 ]
