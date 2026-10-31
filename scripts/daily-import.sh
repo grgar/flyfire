@@ -23,10 +23,6 @@
 #   IMPORT_CONFIG_<N>  an importer JSON config, plain or base64, N = 1-4. Feeds
 #                      are only identified by number, so the logs name no banks.
 #   FIREFLY_PAT        Firefly personal access token
-#   STATIC_CRON_TOKEN  the same value as on the Firefly app, which authenticates its
-#                      cron endpoint. Optional: without it the cron (recurring
-#                      transactions, auto-budgets, bill warnings, exchange rates)
-#                      is skipped with a warning
 #   FLY_API_TOKEN      flyctl auth (deploy token, or `fly tokens create ssh`)
 #   FEEDS              space-separated feed numbers, default: 1 2 3 4
 #   RULE_GROUPS        transaction group IDs to apply rules to as well, to retry
@@ -82,8 +78,24 @@ cd /var/www/html && su -m -s /bin/sh www-data -c 'exec php "$F" $IDS' </dev/null
 echo "REMOTE_EXIT=$?"
 EOF
 
+# No arguments. Firefly's cron job (recurring transactions, auto-budgets, bill
+# warnings, exchange rates) is an HTTP endpoint authenticated by the machine's
+# own STATIC_CRON_TOKEN secret, so it is called on the machine, where the token
+# never leaves it. Only the status code is reported.
+read -r -d '' CRON <<'EOF'
+if [ -z "${STATIC_CRON_TOKEN:-}" ]; then
+  echo CRON_NO_TOKEN
+  echo "REMOTE_EXIT=0"
+  exit 0
+fi
+code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 590 "${FIREFLY_FLYCAST_URL:-http://localhost:8080}/api/v1/cron/$STATIC_CRON_TOKEN" </dev/null)
+echo "CRON_HTTP=$code"
+echo "REMOTE_EXIT=0"
+EOF
+
 IMPORT_B64=$(printf '%s\n%s' "$PRELUDE" "$IMPORT" | base64 -w0)
 RULES_B64=$(printf '%s\n%s' "$PRELUDE" "$RULES" | base64 -w0)
+CRON_B64=$(printf '%s\n%s' "$PRELUDE" "$CRON" | base64 -w0)
 
 failures=0
 fail() { echo "::error::$*"; failures=$((failures + 1)); }
@@ -251,21 +263,23 @@ check_fresh() {
   fi
 }
 
-# Firefly's cron job: recurring transactions, auto-budgets, bill warnings and so
-# on. It is its own endpoint, authenticated by STATIC_CRON_TOKEN in the URL, so
-# the URL and any response are never printed. nginx cuts requests off at 600s.
+# run_cron: see CRON above. The prelude wants a file name and a file, which the
+# cron does not use.
 run_cron() {
-  local code
-  if [ -z "${STATIC_CRON_TOKEN:-}" ]; then
-    echo "::warning::cron: not run, because STATIC_CRON_TOKEN is not set"
-    return
-  fi
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 590 -A "$UA" "$FIREFLY_URL/api/v1/cron/$STATIC_CRON_TOKEN")
-  if [ "$code" = 200 ]; then
+  local log rc fly_rc started code
+  log=$(mktemp)
+  remote "$log" 15m "$CRON_B64" cron.txt eA==
+  code=$(sed -n 's/.*CRON_HTTP=\([0-9][0-9]*\).*/\1/p' "$log" | tail -n1)
+  if grep -q CRON_NO_TOKEN "$log"; then
+    echo "::warning::cron: not run, because STATIC_CRON_TOKEN is not set on the machine"
+  elif [ "$code" = 200 ]; then
     echo "cron: ran"
-  else
+  elif [ -n "$code" ]; then
     fail "cron: Firefly returned HTTP $code (000 means no response)"
+  else
+    fail "cron: did not report a result (flyctl exit $fly_rc)"
   fi
+  rm -f "$log"
 }
 
 [ -n "${FIREFLY_URL:-}" ] || { echo "::error::FIREFLY_URL is not set"; exit 1; }
